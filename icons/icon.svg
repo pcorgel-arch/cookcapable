@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#FBF7F0"/>
+  <g fill="none" stroke="#B4502E" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <!-- pan -->
+    <path d="M150 300 h150 a75 75 0 0 1 0 150 h-150 a0 0 0 0 1 0 0 z" fill="#F3DACE" stroke="none"/>
+    <path d="M150 300 h150 a75 75 0 0 1 0 150 h-150" />
+    <path d="M300 360 h120" />
+  </g>
+  <!-- spoon & fork crossed -->
+  <g stroke="#2F6B4F" stroke-width="20" stroke-linecap="round" fill="none">
+    <path d="M196 80 v150"/>
+    <path d="M316 80 v150"/>
+  </g>
+  <g fill="#2F6B4F">
+    <ellipse cx="196" cy="120" rx="30" ry="44"/>
+  </g>
+  <g stroke="#E0A458" stroke-width="14" stroke-linecap="round">
+    <path d="M300 80 v60"/><path d="M316 80 v60"/><path d="M332 80 v60"/>
+  </g>
+</svg>

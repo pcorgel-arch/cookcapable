@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#B4502E" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="CookCapable" />
+<title>CookCapable — Cook From Your Shelf</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/icon.svg" />
+<link href="fonts/fonts.css" rel="stylesheet" />
+<script src="vendor/html5-qrcode.min.js" defer></script>
+<style>
+:root{
+  --cream:#FBF7F0; --cream-2:#F4ECDF; --paper:#FFFDF9;
+  --ink:#2A211B; --ink-2:#6A5E52; --ink-3:#9C8E7E;
+  --line:#E7DDCC; --line-2:#EFE7D8;
+  --terra:#B4502E; --terra-soft:#F3DACE; --terra-ink:#8C3C20;
+  --herb:#2F6B4F; --herb-soft:#D9E8DF;
+  --saffron:#E0A458; --saffron-soft:#F8E9CF;
+  --danger:#C0392B; --danger-soft:#F6DAD5;
+  --shadow:0 1px 2px rgba(42,33,27,.04), 0 8px 24px -12px rgba(42,33,27,.18);
+  --shadow-lg:0 8px 40px -8px rgba(42,33,27,.28);
+  --r:18px; --r-sm:12px; --r-lg:26px;
+  --maxw:560px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --nav-h:64px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
+  background:var(--cream); color:var(--ink);
+  line-height:1.45; -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+}
+h1,h2,h3,h4,.serif{font-family:"Newsreader",Georgia,serif;font-weight:600;letter-spacing:-.01em}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:16px}
+::placeholder{color:var(--ink-3)}
+a{color:var(--terra);text-decoration:none}
+.hidden{display:none!important}
+
+/* ---------- App shell ---------- */
+#app{max-width:var(--maxw);margin:0 auto;min-height:100vh;min-height:100dvh;position:relative;background:var(--cream);
+  box-shadow:0 0 80px -30px rgba(42,33,27,.25)}
+.screen{padding:0 0 calc(var(--nav-h) + var(--safe-b) + 24px);min-height:100dvh}
+
+/* ---------- Top bar ---------- */
+.topbar{position:sticky;top:0;z-index:40;background:linear-gradient(var(--cream) 70%,rgba(251,247,240,0));
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 8px}
+.topbar-row{display:flex;align-items:center;gap:12px;min-height:40px}
+.topbar h1{font-size:30px;line-height:1.05;margin:0;flex:1}
+.topbar .sub{font-size:13px;color:var(--ink-2);margin:2px 0 0}
+.iconbtn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--paper);
+  border:1px solid var(--line);box-shadow:var(--shadow);color:var(--ink);flex:none;transition:transform .12s, background .12s}
+.iconbtn:active{transform:scale(.92)}
+.iconbtn.primary{background:var(--terra);color:#fff;border-color:transparent}
+.iconbtn svg{width:20px;height:20px}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font-weight:600;font-size:14px;padding:6px 4px;margin:-6px 0 2px}
+.back svg{width:18px;height:18px}
+
+/* ---------- Search ---------- */
+.searchbar{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);
+  border-radius:var(--r);padding:0 14px;height:46px;box-shadow:var(--shadow);margin:8px 18px 4px}
+.searchbar svg{width:18px;height:18px;color:var(--ink-3);flex:none}
+.searchbar input{border:none;outline:none;background:none;flex:1;height:100%;color:var(--ink)}
+.searchbar .clear{color:var(--ink-3);font-size:13px;font-weight:600}
+
+/* ---------- Chips ---------- */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 18px 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--paper);color:var(--ink-2);
+  padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap;transition:all .12s}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+.chip.green[aria-pressed="true"]{background:var(--herb);border-color:var(--herb)}
+.chip .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+/* ---------- Lists & cards ---------- */
+.list{padding:6px 18px 0;display:flex;flex-direction:column;gap:12px}
+.section-label{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);
+  padding:18px 20px 2px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+  overflow:hidden;transition:transform .1s}
+.card:active{transform:scale(.99)}
+.row{display:flex;align-items:center;gap:14px;padding:14px;width:100%;text-align:left}
+.row .grow{flex:1;min-width:0}
+.row h3{font-size:18px;margin:0 0 2px;line-height:1.2}
+.row .meta{font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .meta b{color:var(--terra);font-weight:700}
+.thumb{width:54px;height:72px;border-radius:8px;object-fit:cover;flex:none;background:var(--cream-2);
+  display:grid;place-items:center;color:var(--ink-3);box-shadow:var(--shadow)}
+.thumb.sq{width:56px;height:56px;border-radius:12px}
+.thumb.book{box-shadow:2px 3px 10px -3px rgba(42,33,27,.4)}
+.chev{color:var(--ink-3);flex:none}
+.chev svg{width:18px;height:18px}
+
+/* cookbook cover grid */
+.bookgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:8px 18px 0}
+.bookcard{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:14px;display:flex;flex-direction:column;gap:10px}
+.bookcard .cover{aspect-ratio:3/4;border-radius:10px;background:linear-gradient(135deg,var(--terra-soft),var(--saffron-soft));
+  display:grid;place-items:center;overflow:hidden;box-shadow:2px 4px 14px -4px rgba(42,33,27,.45);position:relative}
+.bookcard .cover img{width:100%;height:100%;object-fit:cover}
+.bookcard .cover .spine{position:absolute;left:0;top:0;bottom:0;width:6px;background:rgba(0,0,0,.12)}
+.bookcard .cover .ph{font-family:"Newsreader",serif;font-size:15px;text-align:center;padding:14px;color:var(--terra-ink);font-weight:600}
+.bookcard h3{font-size:16px;margin:0;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bookcard .by{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bookcard .count{font-size:12px;color:var(--terra);font-weight:700;margin-top:auto}
+
+/* ---------- Pills / badges ---------- */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px}
+.badge.have{background:var(--herb-soft);color:var(--herb)}
+.badge.need{background:var(--terra-soft);color:var(--terra-ink)}
+.badge.tag{background:var(--cream-2);color:var(--ink-2)}
+
+/* match ring */
+.ring{--p:0;width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:conic-gradient(var(--herb) calc(var(--p)*1%), var(--line-2) 0)}
+.ring i{width:36px;height:36px;border-radius:50%;background:var(--paper);display:grid;place-items:center;
+  font-size:12px;font-weight:800;font-style:normal;color:var(--herb)}
+.ring.low{background:conic-gradient(var(--saffron) calc(var(--p)*1%), var(--line-2) 0)}
+.ring.low i{color:var(--saffron)}
+.ring.zero i{color:var(--ink-3)}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:50px;padding:0 20px;border-radius:14px;
+  font-weight:700;font-size:15px;background:var(--ink);color:var(--cream);transition:transform .1s,opacity .1s;width:100%}
+.btn:active{transform:scale(.98)}
+.btn.terra{background:var(--terra);color:#fff}
+.btn.herb{background:var(--herb);color:#fff}
+.btn.ghost{background:var(--paper);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow)}
+.btn.sm{height:40px;font-size:13px;padding:0 14px;width:auto;border-radius:11px}
+.btn.danger{background:var(--danger-soft);color:var(--danger)}
+.btn svg{width:18px;height:18px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+
+/* ---------- Empty state ---------- */
+.empty{text-align:center;padding:60px 32px;color:var(--ink-2)}
+.empty .ic{width:84px;height:84px;border-radius:50%;background:var(--cream-2);display:grid;place-items:center;margin:0 auto 18px;color:var(--terra)}
+.empty .ic svg{width:38px;height:38px}
+.empty h2{font-size:22px;margin:0 0 8px;color:var(--ink)}
+.empty p{font-size:14px;margin:0 auto 20px;max-width:260px}
+
+/* ---------- Bottom nav ---------- */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--nav-h) + var(--safe-b));
+  padding-bottom:var(--safe-b);background:rgba(255,253,249,.9);backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);display:flex;max-width:var(--maxw);margin:0 auto}
+.nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--ink-3);font-size:11px;font-weight:700;height:var(--nav-h)}
+.nav button svg{width:24px;height:24px;transition:transform .15s}
+.nav button[aria-current="true"]{color:var(--terra)}
+.nav button[aria-current="true"] svg{transform:translateY(-1px) scale(1.06)}
+.nav .badge-num{position:absolute;top:8px;margin-left:18px;background:var(--terra);color:#fff;font-size:10px;
+  min-width:16px;height:16px;border-radius:8px;display:grid;place-items:center;padding:0 4px;font-weight:800}
+
+/* ---------- Sheet / modal ---------- */
+.scrim{position:fixed;inset:0;background:rgba(42,33,27,.42);z-index:60;opacity:0;transition:opacity .22s;
+  display:flex;align-items:flex-end;justify-content:center}
+.scrim.open{opacity:1}
+.sheet{background:var(--cream);width:100%;max-width:var(--maxw);max-height:92dvh;border-radius:var(--r-lg) var(--r-lg) 0 0;
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;
+  box-shadow:var(--shadow-lg);overflow:hidden}
+.scrim.open .sheet{transform:translateY(0)}
+.sheet-grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 4px;flex:none}
+.sheet-head{display:flex;align-items:center;gap:12px;padding:6px 18px 12px;flex:none}
+.sheet-head h2{flex:1;font-size:22px;margin:0}
+.sheet-body{overflow-y:auto;padding:4px 18px calc(20px + var(--safe-b));-webkit-overflow-scrolling:touch}
+.sheet-foot{padding:12px 18px calc(16px + var(--safe-b));border-top:1px solid var(--line);background:var(--paper);flex:none;
+  display:flex;gap:10px}
+
+/* ---------- Forms ---------- */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-2);margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;background:var(--paper);border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;color:var(--ink);outline:none;transition:border .12s,box-shadow .12s}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-soft)}
+.field textarea{resize:vertical;min-height:90px;line-height:1.5}
+.field .hint{font-size:12px;color:var(--ink-3);margin-top:5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:.8fr .8fr 1.4fr;gap:8px}
+.ing-row{display:grid;grid-template-columns:.7fr .7fr 1.6fr auto;gap:7px;align-items:center;margin-bottom:8px}
+.ing-row input{padding:10px;border-radius:10px;min-width:0;width:100%}
+.ing-row .del{width:34px;height:34px;border-radius:9px;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center}
+.addrow{font-weight:700;color:var(--terra);font-size:14px;display:inline-flex;align-items:center;gap:6px;padding:8px 0}
+.addrow svg{width:16px;height:16px}
+
+/* scanner */
+.scan-wrap{position:relative;border-radius:var(--r);overflow:hidden;background:#000;aspect-ratio:4/3;margin-bottom:14px}
+#reader{width:100%}
+#reader video{object-fit:cover!important}
+.scan-frame{position:absolute;inset:18% 12%;border:3px solid rgba(255,255,255,.9);border-radius:14px;
+  box-shadow:0 0 0 1000px rgba(0,0,0,.35);pointer-events:none}
+.scan-line{position:absolute;left:12%;right:12%;height:2px;background:var(--terra);box-shadow:0 0 12px var(--terra);
+  animation:scan 2.2s ease-in-out infinite;top:30%}
+@keyframes scan{0%,100%{top:30%}50%{top:68%}}
+.scan-status{text-align:center;font-size:13px;color:var(--ink-2);margin-bottom:10px;min-height:18px}
+/* recipe page scanner */
+video#rv{width:100%;height:100%;object-fit:cover;display:block}
+.qbadge{position:absolute;left:50%;translate:-50% 0;bottom:12px;background:rgba(42,33,27,.78);color:#fff;
+  padding:7px 15px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap}
+.qbadge.ok{background:rgba(47,107,79,.94)} .qbadge.warn{background:rgba(180,80,46,.94)}
+.qmeter{height:7px;border-radius:4px;background:var(--line-2);overflow:hidden;margin:12px 0 2px}
+.qmeter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--saffron),var(--herb));transition:width .12s}
+.qmeter-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+.cand{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
+.cand-head{display:flex;align-items:center;gap:10px}
+.cand-n{width:26px;height:26px;border-radius:50%;background:var(--terra);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.cand-head .c-name{flex:1;font-weight:600;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--cream);outline:none}
+.cand-head .c-name:focus{border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-soft)}
+.cand-del{width:36px;height:36px;border-radius:10px;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;flex:none}
+.cand-sub{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin:14px 0 8px}
+.cand .c-steps{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--cream);resize:vertical;line-height:1.5;outline:none}
+.cand .c-steps:focus{border-color:var(--terra);box-shadow:0 0 0 3px var(--terra-soft)}
+
+/* recipe / detail */
+.hero{padding:4px 18px 6px}
+.hero .cover-lg{width:96px;height:128px;border-radius:12px;object-fit:cover;float:left;margin:0 16px 6px 0;
+  box-shadow:3px 5px 18px -5px rgba(42,33,27,.5);background:var(--cream-2)}
+.hero h1{font-size:26px;margin:0 0 4px;line-height:1.12}
+.hero .by{color:var(--ink-2);font-size:14px}
+.hero .stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;clear:both;padding-top:8px}
+.detail-block{padding:14px 18px}
+.detail-block h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin:0 0 10px;font-family:"Plus Jakarta Sans",sans-serif;font-weight:700}
+.ing-list{display:flex;flex-direction:column;gap:2px}
+.ing-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;background:var(--paper);border:1px solid var(--line-2)}
+.ing-item .q{font-weight:700;color:var(--ink);font-size:14px;min-width:64px;flex:none}
+.ing-item .n{flex:1}
+.ing-item.miss{background:var(--paper)}
+.ing-item .tick{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ing-item .tick.y{background:var(--herb);color:#fff}
+.ing-item .tick.n{background:var(--cream-2);color:var(--ink-3);border:1px dashed var(--line)}
+.steps{counter-reset:s;display:flex;flex-direction:column;gap:14px}
+.step{display:flex;gap:14px}
+.step .num{counter-increment:s;flex:none;width:28px;height:28px;border-radius:50%;background:var(--terra);color:#fff;
+  display:grid;place-items:center;font-weight:800;font-size:14px}
+.step .num::before{content:counter(s)}
+.step p{margin:2px 0;font-size:15px;line-height:1.55}
+
+/* selectable list (plan) */
+.sel-row{display:flex;align-items:center;gap:12px;padding:13px 14px}
+.checkbox{width:24px;height:24px;border-radius:8px;border:2px solid var(--line);flex:none;display:grid;place-items:center;
+  background:var(--paper);transition:all .12s}
+.checkbox.on{background:var(--herb);border-color:var(--herb);color:#fff}
+.checkbox svg{width:15px;height:15px}
+
+/* grocery */
+.gro-item{display:flex;align-items:center;gap:12px;padding:13px 14px}
+.gro-item.done .gname{text-decoration:line-through;color:var(--ink-3)}
+.gname{flex:1}
+.gqty{font-size:13px;color:var(--ink-2);font-weight:700;background:var(--cream-2);padding:3px 9px;border-radius:8px}
+.gdel{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--ink-3);flex:none}
+.gdel:active{background:var(--danger-soft);color:var(--danger)}
+.gdel svg{width:16px;height:16px}
+
+/* qty stepper */
+.stepper{display:inline-flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--paper)}
+.stepper button{width:34px;height:34px;display:grid;place-items:center;color:var(--terra);font-size:18px;font-weight:700}
+.stepper span{min-width:40px;text-align:center;font-weight:700;font-size:14px}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 18px + var(--safe-b));
+  translate:-50% 20px;z-index:80;background:var(--ink);color:var(--cream);padding:12px 18px;border-radius:14px;
+  font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .2s,translate .2s;
+  max-width:88%;display:flex;align-items:center;gap:9px}
+#toast.show{opacity:1;translate:-50% 0}
+#toast.ok{background:var(--herb)} #toast.warn{background:var(--terra)}
+#toast svg{width:18px;height:18px;flex:none}
+
+/* misc */
+.fab{position:fixed;right:max(18px,calc(50% - var(--maxw)/2 + 18px));bottom:calc(var(--nav-h) + var(--safe-b) + 18px);
+  z-index:45;width:58px;height:58px;border-radius:20px;background:var(--terra);color:#fff;display:grid;place-items:center;
+  box-shadow:0 8px 24px -6px rgba(180,80,46,.7);transition:transform .12s}
+.fab:active{transform:scale(.9)}
+.fab svg{width:26px;height:26px}
+.divider{height:1px;background:var(--line);margin:8px 18px}
+.swipe-hint{font-size:12px;color:var(--ink-3);text-align:center;padding:8px}
+.skeleton{background:linear-gradient(90deg,var(--cream-2),var(--line-2),var(--cream-2));background-size:200% 100%;
+  animation:sk 1.3s infinite;border-radius:8px}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.muted{color:var(--ink-2);font-size:13px}
+.center{text-align:center}
+.mt{margin-top:14px}.mb{margin-bottom:14px}
+.linkbtn{color:var(--terra);font-weight:700;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app"><div id="screen" class="screen"></div></div>
+<nav class="nav" id="nav"></nav>
+<div id="toast"></div>
+<div id="sheet-root"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   MISE — Cook From Your Shelf
+   Local-first meal planning PWA. No backend; all data stays on device.
+   Sections: Icons · Store · Lookups · Matching · Sheets · Views · Nav · Boot
+   ========================================================================= */
+
+/* ---------------- Icons (inline SVG) ---------------- */
+const I = {
+  book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  pantry:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3z"/><path d="M5 7v14h14V7"/><path d="M9 12h6"/></svg>',
+  cook:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2a3 3 0 0 0-3 3v3.5h13V5a3 3 0 0 0-3-3"/><path d="M5.5 8.5h13L17 22H7z"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  scan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  dots:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/></svg>',
+  cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 3h2l2.6 13.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L23 7H6"/></svg>',
+  spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>',
+  keyboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+};
+const svg = (name)=>I[name]||'';
+
+/* ---------------- Store (localStorage, JSON) ---------------- */
+const DB_KEY='cookcapable.v1';
+const uid=()=> 'x'+(performance.now().toString(36).replace('.','')) + Math.floor(Math.random()*1e6).toString(36);
+const store = {
+  data:{cookbooks:[],recipes:[],pantry:[],grocery:[],meta:{seeded:false}},
+  load(){
+    try{const r=localStorage.getItem(DB_KEY); if(r) this.data=JSON.parse(r);}catch(e){console.warn('load',e);}
+    const d=this.data; d.cookbooks=d.cookbooks||[]; d.recipes=d.recipes||[]; d.pantry=d.pantry||[];
+    d.grocery=d.grocery||[]; d.mealPlan=d.mealPlan||[]; d.meta=d.meta||{seeded:false};
+  },
+  save(){
+    try{localStorage.setItem(DB_KEY,JSON.stringify(this.data));}
+    catch(e){toast('Storage is full. Export a backup from Settings.','warn');}
+  },
+  // cookbooks
+  cookbook(id){return this.data.cookbooks.find(c=>c.id===id);},
+  recipesOf(id){return this.data.recipes.filter(r=>r.cookbookId===id);},
+  addCookbook(c){c.id=c.id||uid();c.createdAt=Date.now();this.data.cookbooks.unshift(c);this.save();return c;},
+  updateCookbook(id,patch){const c=this.cookbook(id);if(c){Object.assign(c,patch);this.save();}return c;},
+  deleteCookbook(id){this.data.recipes=this.data.recipes.filter(r=>r.cookbookId!==id);
+    this.data.cookbooks=this.data.cookbooks.filter(c=>c.id!==id);this.save();},
+  // recipes
+  recipe(id){return this.data.recipes.find(r=>r.id===id);},
+  addRecipe(r){r.id=r.id||uid();r.createdAt=Date.now();this.data.recipes.unshift(r);this.save();return r;},
+  updateRecipe(id,patch){const r=this.recipe(id);if(r){Object.assign(r,patch);this.save();}return r;},
+  deleteRecipe(id){this.data.recipes=this.data.recipes.filter(r=>r.id!==id);this.save();},
+  // pantry
+  pantryItem(id){return this.data.pantry.find(p=>p.id===id);},
+  addPantry(p){p.id=p.id||uid();p.createdAt=Date.now();this.data.pantry.unshift(p);this.save();return p;},
+  updatePantry(id,patch){const p=this.pantryItem(id);if(p){Object.assign(p,patch);this.save();}return p;},
+  deletePantry(id){this.data.pantry=this.data.pantry.filter(p=>p.id!==id);this.save();},
+};
+
+/* ---------------- External lookups (free, no key) ---------------- */
+/* fetch JSON with a hard timeout — a slow/throttled API must never hang a flow.
+   Uses Promise.race against a timer so it resolves even if fetch/abort never settles. */
+function fetchJSON(url,ms){
+  ms=ms||7000;
+  const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
+  const req=fetch(url,ctl?{signal:ctl.signal}:undefined).then(r=>r.ok?r.json():null).catch(()=>null);
+  const timer=new Promise(res=>setTimeout(()=>{if(ctl){try{ctl.abort();}catch(e){}} res(null);},ms));
+  return Promise.race([req,timer]);
+}
+async function lookupISBN(isbn){
+  isbn=(isbn||'').replace(/[^0-9Xx]/g,'');
+  const g=await fetchJSON('https://www.googleapis.com/books/v1/volumes?q=isbn:'+isbn);
+  if(g&&g.totalItems>0){
+    const v=g.items[0].volumeInfo;
+    return {found:true,title:v.title||'',author:(v.authors||[]).join(', '),
+      publisher:v.publisher||'',year:(v.publishedDate||'').slice(0,4),
+      cover:(v.imageLinks&&(v.imageLinks.thumbnail||v.imageLinks.smallThumbnail)||'').replace('http://','https://'),isbn};
+  }
+  const o=await fetchJSON('https://openlibrary.org/api/books?bibkeys=ISBN:'+isbn+'&format=json&jscmd=data');
+  const k=o&&o['ISBN:'+isbn];
+  if(k) return {found:true,title:k.title||'',author:(k.authors||[]).map(a=>a.name).join(', '),
+    publisher:(k.publishers||[]).map(p=>p.name).join(', '),year:(k.publish_date||'').slice(-4),
+    cover:(k.cover&&(k.cover.medium||k.cover.large))||'',isbn};
+  return {found:false,isbn};
+}
+async function lookupUPC(upc){
+  upc=(upc||'').replace(/[^0-9]/g,'');
+  const j=await fetchJSON('https://world.openfoodfacts.org/api/v2/product/'+upc+'.json?fields=product_name,brands,image_front_small_url,categories_tags_en,quantity');
+  if(j&&j.status===1&&j.product){
+    const p=j.product, cats=p.categories_tags_en||[];
+    return {found:true,name:p.product_name||'',brand:(p.brands||'').split(',')[0].trim(),
+      image:p.image_front_small_url||'',category:guessCategory(cats.join(' ')+' '+(p.product_name||'')),
+      size:p.quantity||'',upc};
+  }
+  return {found:false,upc};
+}
+
+/* ---------------- Matching engine ---------------- */
+const STOP=new Set(('fresh dried ground chopped minced sliced diced large small medium ripe boneless skinless extra '+
+ 'virgin taste optional cup cups tbsp tsp tsp tablespoon tablespoons teaspoon teaspoons oz ounce ounces lb lbs pound '+
+ 'pounds gram grams kg ml l liter clove cloves can cans package pkg jar slice slices pinch stick sticks bunch handful '+
+ 'of for and the a an to into about plus more some warm cold hot room temperature finely roughly thinly').split(' '));
+function normName(s){
+  return (s||'').toLowerCase()
+    .replace(/\([^)]*\)/g,' ').replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\d+/g,' ').replace(/\s+/g,' ').trim()
+    .split(' ').map(w=> w.length>3&&w.endsWith('s')? w.slice(0,-1):w).join(' ');
+}
+function keyTokens(s){
+  return new Set(normName(s).split(' ').filter(w=>w.length>=3&&!STOP.has(w)));
+}
+function namesMatch(ingName,pantryName){
+  const a=keyTokens(ingName), b=keyTokens(pantryName);
+  if(!a.size||!b.size) return false;
+  for(const w of b){ if(a.has(w)) return true; }
+  // loose contains for compound (e.g. "olive oil" vs "extra virgin olive oil")
+  const an=normName(ingName), bn=normName(pantryName);
+  return (bn.length>=4&&an.includes(bn))||(an.length>=4&&bn.includes(an));
+}
+function ingredientInPantry(ingName){
+  return store.data.pantry.some(p=> (p.qty===undefined||p.qty>0) && namesMatch(ingName,p.name));
+}
+function recipeMatch(recipe){
+  const ings=(recipe.ingredients||[]).filter(i=>i.name&&i.name.trim());
+  let have=0; const missing=[];
+  ings.forEach(i=>{ if(ingredientInPantry(i.name)) have++; else missing.push(i); });
+  const total=ings.length;
+  return {have,total,missing,pct: total? Math.round(have/total*100):0};
+}
+
+/* ---------------- UI helpers ---------------- */
+const $=(s,r=document)=>r.querySelector(s);
+const el=(html)=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;};
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+let toastT;
+function toast(msg,type){
+  const t=$('#toast'); t.className=''; if(type)t.classList.add(type);
+  const ic=type==='warn'?svg('info'):svg('check');
+  t.innerHTML=ic+'<span>'+esc(msg)+'</span>';
+  requestAnimationFrame(()=>t.classList.add('show'));
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400);
+}
+function plural(n,w){return n+' '+w+(n===1?'':'s');}
+function fmtQty(i){return [i.qty,i.unit].filter(Boolean).join(' ');}
+
+/* ---------------- Navigation state ---------------- */
+const TABS=[
+  {id:'cookbooks',label:'Cookbooks',icon:'book'},
+  {id:'pantry',label:'Pantry',icon:'pantry'},
+  {id:'cook',label:'Cook',icon:'cook'},
+  {id:'search',label:'Search',icon:'search'},
+];
+let nav=[{view:'cookbooks',tab:'cookbooks'}];
+let ui={cookFilter:'all',planSel:new Set(),query:'',pantryQ:''};
+const curTab=()=> (nav[nav.length-1].tab)||'cookbooks';
+function go(view,params){nav.push({view,params:params||{},tab:curTab()});render();window.scrollTo(0,0);}
+function back(){if(nav.length>1){nav.pop();render();}}
+function setTab(tab){nav=[{view:tab,tab}];ui.query='';render();window.scrollTo(0,0);}
+function replace(view,params){nav[nav.length-1]={view,params:params||{},tab:curTab()};render();}
+
+/* ---------------- Render root ---------------- */
+function render(){
+  const node=nav[nav.length-1];
+  const screen=$('#screen');
+  const fns={cookbooks:viewCookbooks,pantry:viewPantry,cook:viewCook,search:viewSearch,
+    cookbook:viewCookbook,recipe:viewRecipe};
+  const fn=fns[node.view]||viewCookbooks;
+  screen.innerHTML='';
+  screen.appendChild(fn(node.params||{}));
+  renderNav();
+}
+function renderNav(){
+  const nav$=$('#nav'); const active=curTab();
+  const groceryCount=store.data.grocery.filter(g=>!g.done).length;
+  nav$.innerHTML=TABS.map(t=>{
+    const badge=(t.id==='cook'&&groceryCount)?'<span class="badge-num">'+groceryCount+'</span>':'';
+    return '<button data-tab="'+t.id+'" aria-current="'+(active===t.id)+'">'+badge+svg(t.icon)+'<span>'+t.label+'</span></button>';
+  }).join('');
+  nav$.querySelectorAll('button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+}
+
+/* =========================================================================
+   VIEW: Cookbooks
+   ========================================================================= */
+function viewCookbooks(){
+  const wrap=el('<div></div>');
+  const tb=topbar({title:'Cookbooks',sub:plural(store.data.cookbooks.length,'book')+' · '+plural(store.data.recipes.length,'recipe'),
+    action:{icon:'scan',label:'Add cookbook',primary:true,onClick:openAddCookbook}});
+  const gear=el('<button class="iconbtn" aria-label="Settings">'+svg('gear')+'</button>');
+  gear.onclick=openSettings;
+  tb.querySelector('.topbar-row').insertBefore(gear,tb.querySelector('.iconbtn.primary'));
+  wrap.appendChild(tb);
+  const q=ui.query.toLowerCase();
+  wrap.appendChild(searchInput('Search books, recipes & ingredients…',q,(v)=>{ui.query=v;rerenderCookbookList(wrap);}));
+  const listHost=el('<div id="cb-list"></div>');
+  wrap.appendChild(listHost);
+  fillCookbookList(listHost);
+  return wrap;
+}
+function rerenderCookbookList(wrap){const h=$('#cb-list',wrap);if(h)fillCookbookList(h);}
+function fillCookbookList(host){
+  const q=ui.query.toLowerCase().trim();
+  let books=store.data.cookbooks;
+  let matchedRecipes=[];
+  if(q){
+    matchedRecipes=store.data.recipes.filter(r=>r.name.toLowerCase().includes(q)
+      || (r.ingredients||[]).some(i=>(i.name||'').toLowerCase().includes(q))
+      || (r.tags||[]).some(t=>t.toLowerCase().includes(q)));
+    books=books.filter(c=> c.title.toLowerCase().includes(q) || (c.author||'').toLowerCase().includes(q)
+      || matchedRecipes.some(r=>r.cookbookId===c.id));
+  }
+  host.innerHTML='';
+  if(!store.data.cookbooks.length){
+    host.appendChild(emptyState('book','Your shelf is empty',
+      'Scan a cookbook’s barcode (ISBN) to log it, then add the recipes you love.',
+      [{label:'Scan a cookbook',cls:'terra',icon:'scan',onClick:openAddCookbook},
+       {label:'Load a sample shelf',cls:'ghost',icon:'spark',onClick:seedSample}]));
+    return;
+  }
+  if(q && matchedRecipes.length){
+    const lbl=el('<div class="section-label">Matching recipes</div>');host.appendChild(lbl);
+    const l=el('<div class="list"></div>');
+    matchedRecipes.slice(0,8).forEach(r=>l.appendChild(recipeRow(r,true)));
+    host.appendChild(l);
+    host.appendChild(el('<div class="section-label">Cookbooks</div>'));
+  }
+  if(!books.length){host.appendChild(noResults('No cookbooks match “'+esc(q)+'”'));return;}
+  const grid=el('<div class="bookgrid"></div>');
+  books.forEach(c=>grid.appendChild(bookCard(c)));
+  host.appendChild(grid);
+}
+function bookCard(c){
+  const n=store.recipesOf(c.id).length;
+  const coverInner = c.cover
+    ? '<img src="'+esc(c.cover)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><div class="ph" style="display:none">'+esc(c.title)+'</div>'
+    : '<div class="ph">'+esc(c.title)+'</div>';
+  const card=el('<button class="bookcard"><div class="cover"><span class="spine"></span>'+coverInner+'</div>'+
+    '<h3>'+esc(c.title)+'</h3>'+
+    (c.author?'<div class="by">'+esc(c.author)+'</div>':'')+
+    '<div class="count">'+plural(n,'recipe')+'</div></button>');
+  card.onclick=()=>go('cookbook',{id:c.id});
+  return card;
+}
+
+/* VIEW: single cookbook */
+function viewCookbook(p){
+  const c=store.cookbook(p.id);
+  const wrap=el('<div></div>');
+  if(!c){wrap.appendChild(topbarBack('Cookbook'));wrap.appendChild(noResults('Cookbook not found'));return wrap;}
+  wrap.appendChild(topbarBack(c.title,{icon:'dots',onClick:()=>cookbookMenu(c)}));
+  const hero=el('<div class="hero"></div>');
+  const cover=c.cover?'<img class="cover-lg" src="'+esc(c.cover)+'" alt="" onerror="this.remove()">':'';
+  hero.innerHTML=cover+'<h1>'+esc(c.title)+'</h1>'+
+    (c.author?'<div class="by">'+esc(c.author)+'</div>':'')+
+    '<div class="by">'+[c.publisher,c.year].filter(Boolean).map(esc).join(' · ')+(c.isbn?' · ISBN '+esc(c.isbn):'')+'</div>';
+  wrap.appendChild(hero);
+  const recs=store.recipesOf(c.id);
+  const bar=el('<div class="list" style="padding-top:14px"></div>');
+  const add=el('<button class="btn terra"><span>'+svg('plus')+'</span>Add a recipe</button>');
+  add.onclick=()=>openAddRecipe(c.id);
+  bar.appendChild(add);
+  wrap.appendChild(bar);
+  wrap.appendChild(el('<div class="section-label">'+plural(recs.length,'recipe')+'</div>'));
+  if(!recs.length){
+    wrap.appendChild(emptyState('cook','No recipes yet','Add the recipes from this book — scan a page and CookCapable reads it for you, or type them in.',
+      [{label:'Scan a recipe',cls:'terra',icon:'scan',onClick:()=>openRecipeScanner(c.id)},
+       {label:'Type one in',cls:'ghost',icon:'keyboard',onClick:()=>openRecipeForm({cookbookId:c.id})}]));
+  }else{
+    if(ui.bookQId!==c.id){ui.bookQ='';ui.bookQId=c.id;}
+    if(recs.length>2)wrap.appendChild(searchInput('Search recipes & ingredients…',ui.bookQ||'',(v)=>{ui.bookQ=v;fillBookRecipes($('#bk-recs',wrap),c.id);}));
+    const host=el('<div id="bk-recs"></div>');wrap.appendChild(host);
+    fillBookRecipes(host,c.id);
+  }
+  return wrap;
+}
+function fillBookRecipes(host,cookbookId){
+  if(!host)return;
+  const q=(ui.bookQ||'').toLowerCase().trim();
+  let recs=store.recipesOf(cookbookId);
+  if(q)recs=recs.filter(r=>r.name.toLowerCase().includes(q)
+    || (r.ingredients||[]).some(i=>(i.name||'').toLowerCase().includes(q))
+    || (r.tags||[]).some(t=>t.toLowerCase().includes(q)));
+  host.innerHTML='';
+  if(!recs.length){host.appendChild(noResults('No recipes match “'+esc(q)+'”'));return;}
+  const l=el('<div class="list"></div>');recs.forEach(r=>l.appendChild(recipeRow(r)));host.appendChild(l);
+}
+function recipeRow(r,showBook){
+  const m=recipeMatch(r);
+  const book=showBook?store.cookbook(r.cookbookId):null;
+  const ringCls=m.pct===100?'':m.pct>0?'low':'zero';
+  const card=el('<button class="card"><div class="row">'+
+    '<div class="ring '+ringCls+'" style="--p:'+m.pct+'"><i>'+m.pct+'%</i></div>'+
+    '<div class="grow"><h3>'+esc(r.name)+'</h3>'+
+    '<div class="meta">'+(book?esc(book.title)+' · ':'')+
+      (m.total? '<b>'+m.have+'/'+m.total+'</b> on hand': plural((r.ingredients||[]).length,'ingredient'))+
+      (r.time?' · '+esc(r.time):'')+'</div></div>'+
+    '<span class="chev">'+svg('chev')+'</span></div></button>');
+  card.onclick=()=>go('recipe',{id:r.id});
+  return card;
+}
+
+/* VIEW: single recipe */
+function viewRecipe(p){
+  const r=store.recipe(p.id);
+  const wrap=el('<div></div>');
+  if(!r){wrap.appendChild(topbarBack('Recipe'));wrap.appendChild(noResults('Recipe not found'));return wrap;}
+  const book=store.cookbook(r.cookbookId);
+  wrap.appendChild(topbarBack(book?book.title:'Recipe',{icon:'dots',onClick:()=>recipeMenu(r)}));
+  const m=recipeMatch(r);
+  const hero=el('<div class="hero" style="padding-top:8px"></div>');
+  hero.innerHTML='<h1>'+esc(r.name)+'</h1>'+
+    '<div class="stats">'+
+      (r.time?'<span class="badge tag">'+svg('clock')+esc(r.time)+'</span>':'')+
+      (r.servings?'<span class="badge tag">'+svg('users')+esc(r.servings)+'</span>':'')+
+      (r.page?'<span class="badge tag">p.'+esc(r.page)+'</span>':'')+
+      (m.total?'<span class="badge '+(m.pct===100?'have':'need')+'">'+m.have+'/'+m.total+' in pantry</span>':'')+
+      (r.tags||[]).map(t=>'<span class="badge tag">'+esc(t)+'</span>').join('')+
+    '</div>';
+  wrap.appendChild(hero);
+  // ingredients
+  const ib=el('<div class="detail-block"><h3>Ingredients</h3></div>');
+  const il=el('<div class="ing-list"></div>');
+  (r.ingredients||[]).forEach(i=>{
+    if(!i.name)return;
+    const have=ingredientInPantry(i.name);
+    const row=el('<div class="ing-item '+(have?'':'miss')+'">'+
+      '<span class="tick '+(have?'y':'n')+'">'+(have?svg('check'):'')+'</span>'+
+      (fmtQty(i)?'<span class="q">'+esc(fmtQty(i))+'</span>':'<span class="q"></span>')+
+      '<span class="n">'+esc(i.name)+'</span></div>');
+    il.appendChild(row);
+  });
+  ib.appendChild(il);
+  const planned=inPlan(r.id);
+  const pb=el('<button class="btn '+(planned?'ghost':'herb')+' mt" style="width:100%"><span>'+svg(planned?'check':'cook')+'</span>'+
+    (planned?'In your meal plan — tap to remove':'Add to meal plan'+(m.missing.length?' ('+m.missing.length+' to buy)':''))+'</button>');
+  pb.onclick=()=>{
+    if(planned){removeFromPlan(r.id);toast('Removed — pantry restored');}
+    else{addToPlan(r.id);toast(m.missing.length?'Planned — '+m.missing.length+' added to grocery':'Planned — you have everything','ok');}
+    replace('recipe',{id:r.id});
+  };
+  ib.appendChild(pb);
+  wrap.appendChild(ib);
+  // steps
+  if((r.steps||[]).filter(Boolean).length){
+    const sb=el('<div class="detail-block"><h3>Method</h3></div>');
+    const sl=el('<div class="steps"></div>');
+    r.steps.filter(Boolean).forEach(s=>sl.appendChild(el('<div class="step"><span class="num"></span><p>'+esc(s)+'</p></div>')));
+    sb.appendChild(sl);wrap.appendChild(sb);
+  }
+  if(r.note){wrap.appendChild(el('<div class="detail-block"><h3>Notes</h3><p class="muted" style="font-size:15px;color:var(--ink)">'+esc(r.note)+'</p></div>'));}
+  if(r.photo){
+    const pb=el('<div class="detail-block"><h3>Scanned page</h3></div>');
+    const img=el('<img src="'+esc(r.photo)+'" alt="scanned recipe page" style="width:100%;border-radius:14px;box-shadow:var(--shadow)">');
+    pb.appendChild(img);wrap.appendChild(pb);
+  }
+  return wrap;
+}
+
+/* =========================================================================
+   VIEW: Pantry
+   ========================================================================= */
+const PANTRY_CATS=['Produce','Meat & Fish','Dairy & Eggs','Bakery','Pantry','Spices','Frozen','Canned','Condiments','Drinks','Other'];
+function guessCategory(text){
+  text=(text||'').toLowerCase();
+  const map=[['Produce',/vegetable|fruit|fresh|lettuce|tomato|onion|garlic|apple|banana|pepper|carrot/],
+    ['Meat & Fish',/meat|beef|chicken|pork|fish|seafood|poultry|bacon|sausage/],
+    ['Dairy & Eggs',/dairy|milk|cheese|yogurt|butter|cream|egg/],
+    ['Bakery',/bread|bakery|bun|bagel|tortilla|roll/],
+    ['Spices',/spice|seasoning|pepper|salt|cumin|paprika|herb/],
+    ['Frozen',/frozen/],['Canned',/canned|can /],['Condiments',/sauce|ketchup|mustard|mayo|dressing|oil|vinegar/],
+    ['Drinks',/beverage|drink|juice|soda|water|coffee|tea/]];
+  for(const[c,re]of map){if(re.test(text))return c;}
+  return 'Pantry';
+}
+function viewPantry(){
+  const wrap=el('<div></div>');
+  wrap.appendChild(topbar({title:'Pantry',sub:plural(store.data.pantry.length,'item')+' on hand',
+    action:{icon:'scan',label:'Add item',primary:true,onClick:openAddPantry}}));
+  wrap.appendChild(searchInput('Search your pantry…',ui.pantryQ,(v)=>{ui.pantryQ=v;fillPantry($('#p-list',wrap));}));
+  const host=el('<div id="p-list"></div>');wrap.appendChild(host);fillPantry(host);
+  return wrap;
+}
+function fillPantry(host){
+  if(!host)return;
+  const q=ui.pantryQ.toLowerCase().trim();
+  let items=store.data.pantry;
+  if(q)items=items.filter(p=>p.name.toLowerCase().includes(q)||(p.brand||'').toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q));
+  host.innerHTML='';
+  if(!store.data.pantry.length){
+    host.appendChild(emptyState('pantry','Stock your pantry',
+      'Scan a UPC barcode to auto-fill the item, or add things by hand. This is what the app checks your recipes against.',
+      [{label:'Scan an item',cls:'terra',icon:'scan',onClick:openAddPantry},
+       {label:'Add by hand',cls:'ghost',icon:'keyboard',onClick:()=>openPantryForm({})}]));
+    return;
+  }
+  if(!items.length){host.appendChild(noResults('Nothing matches “'+esc(q)+'”'));return;}
+  const groups={};
+  items.forEach(p=>{(groups[p.category||'Other']=groups[p.category||'Other']||[]).push(p);});
+  const order=PANTRY_CATS.filter(c=>groups[c]);
+  Object.keys(groups).forEach(c=>{if(!order.includes(c))order.push(c);});
+  order.forEach(cat=>{
+    host.appendChild(el('<div class="section-label">'+esc(cat)+' · '+groups[cat].length+'</div>'));
+    const l=el('<div class="list"></div>');
+    groups[cat].forEach(p=>l.appendChild(pantryRow(p)));
+    host.appendChild(l);
+  });
+}
+function pantryRow(p){
+  const thumb='<div class="thumb sq" style="position:relative">'+svg('pantry')+
+    (p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy" onerror="this.remove()" '+
+      'style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:12px">':'')+'</div>';
+  const card=el('<div class="card"><div class="row">'+thumb+
+    '<div class="grow"><h3 style="font-size:16px">'+esc(p.name)+'</h3>'+
+    '<div class="meta">'+[p.brand,p.size].filter(Boolean).map(esc).join(' · ')+'</div></div></div></div>');
+  const right=el('<div style="display:flex;align-items:center;gap:8px;padding-right:12px"></div>');
+  if(p.unit)right.appendChild(el('<span style="font-size:12px;color:var(--ink-2);font-weight:700">'+esc(p.unit)+'</span>'));
+  const step=el('<div class="stepper"><button aria-label="less">−</button><span>'+fmtAmount(p.qty??1)+'</span><button aria-label="more">+</button></div>');
+  const[minus,,plus]=step.children; const span=step.children[1];
+  minus.onclick=(e)=>{e.stopPropagation();const v=Math.max(0,(p.qty??1)-1);store.updatePantry(p.id,{qty:v});span.textContent=fmtAmount(v);renderNav();};
+  plus.onclick=(e)=>{e.stopPropagation();const v=(p.qty??1)+1;store.updatePantry(p.id,{qty:v});span.textContent=fmtAmount(v);};
+  right.appendChild(step);
+  card.querySelector('.row').appendChild(right);
+  card.querySelector('.row').onclick=(e)=>{if(e.target.closest('.stepper'))return;openPantryForm(p);};
+  return card;
+}
+
+/* =========================================================================
+   VIEW: Cook (crosswalk) — "Cook now" + "Plan & shop"
+   ========================================================================= */
+function viewCook(){
+  const wrap=el('<div></div>');
+  wrap.appendChild(topbar({title:'Cook',sub:'What your shelf can make'}));
+  // mode chips
+  const modeRow=el('<div class="chips"></div>');
+  const modes=[['now','Cook now'],['plan','Meal plan'],['grocery','Grocery list']];
+  modes.forEach(([id,label])=>{
+    const c=el('<button class="chip green" aria-pressed="'+(ui.cookMode===id||(!ui.cookMode&&id==='now'))+'">'+label+
+      (id==='grocery'&&store.data.grocery.filter(g=>!g.done).length?' ('+store.data.grocery.filter(g=>!g.done).length+')':'')+'</button>');
+    c.onclick=()=>{ui.cookMode=id;render();};
+    modeRow.appendChild(c);
+  });
+  wrap.appendChild(modeRow);
+  const mode=ui.cookMode||'now';
+  if(mode==='now')cookNow(wrap);
+  else if(mode==='plan')cookPlan(wrap);
+  else cookGrocery(wrap);
+  return wrap;
+}
+function cookNow(wrap){
+  const recs=store.data.recipes.map(r=>({r,m:recipeMatch(r)})).filter(x=>x.m.total>0);
+  if(!store.data.recipes.length){
+    wrap.appendChild(emptyState('cook','Add recipes to get cooking',
+      'Once you’ve logged a few recipes and stocked your pantry, this screen shows exactly what you can make right now.',
+      [{label:'Go to Cookbooks',cls:'terra',icon:'book',onClick:()=>setTab('cookbooks')}]));
+    return;
+  }
+  recs.sort((a,b)=> b.m.pct-a.m.pct || a.m.missing.length-b.m.missing.length);
+  // filter chips
+  const filters=[['all','All'],['ready','Ready to cook'],['almost','Missing ≤2']];
+  const fr=el('<div class="chips" style="padding-top:4px"></div>');
+  filters.forEach(([id,label])=>{
+    const c=el('<button class="chip" aria-pressed="'+((ui.cookFilter||'all')===id)+'">'+label+'</button>');
+    c.onclick=()=>{ui.cookFilter=id;render();};fr.appendChild(c);
+  });
+  wrap.appendChild(fr);
+  let list=recs;
+  if(ui.cookFilter==='ready')list=recs.filter(x=>x.m.pct===100);
+  else if(ui.cookFilter==='almost')list=recs.filter(x=>x.m.missing.length<=2&&x.m.missing.length>0);
+  const ready=recs.filter(x=>x.m.pct===100).length;
+  wrap.appendChild(el('<div class="section-label">'+(ready?ready+' ready · ':'')+list.length+' shown</div>'));
+  if(!list.length){wrap.appendChild(noResults('Nothing here yet — stock more pantry items to unlock recipes.'));return;}
+  const l=el('<div class="list"></div>');
+  list.forEach(x=>l.appendChild(recipeRow(x.r,true)));
+  wrap.appendChild(l);
+}
+function cookPlan(wrap){
+  if(!store.data.recipes.length){
+    wrap.appendChild(emptyState('cook','No recipes yet',
+      'Add recipes to your cookbooks, then plan meals here — your pantry updates as you commit to them.',
+      [{label:'Go to Cookbooks',cls:'terra',icon:'book',onClick:()=>setTab('cookbooks')}]));
+    return;
+  }
+  const top=el('<div class="list" style="padding-top:6px"></div>');
+  const addb=el('<button class="btn terra"><span>'+svg('plus')+'</span>Add a recipe to the plan</button>');
+  addb.onclick=()=>openPlanPicker();
+  top.appendChild(addb);
+  wrap.appendChild(top);
+  const plan=store.data.mealPlan;
+  if(!plan.length){
+    wrap.appendChild(emptyState('cook','No meals planned yet',
+      'Add recipes you intend to cook. CookCapable reserves what you already have in the pantry and adds anything you’re short on to your grocery list.',[]));
+    return;
+  }
+  const groceryN=store.data.grocery.filter(g=>!g.done).length;
+  wrap.appendChild(el('<div class="section-label">'+plural(plan.length,'meal')+' planned'+(groceryN?' · '+plural(groceryN,'item')+' to buy':' · fully stocked')+'</div>'));
+  const l=el('<div class="list"></div>');
+  plan.slice().reverse().forEach(entry=>{const r=store.recipe(entry.recipeId);if(r)l.appendChild(planRow(r,entry));});
+  wrap.appendChild(l);
+  if(groceryN){
+    const foot=el('<div class="list mt"></div>');
+    const gb=el('<button class="btn herb"><span>'+svg('cart')+'</span>View grocery list ('+groceryN+')</button>');
+    gb.onclick=()=>{ui.cookMode='grocery';render();};
+    foot.appendChild(gb);wrap.appendChild(foot);
+  }
+}
+function planRow(r,entry){
+  const book=store.cookbook(r.cookbookId);
+  const need=entry.groceryAdds.length;
+  const card=el('<button class="card"><div class="row">'+
+    '<div class="grow"><h3 style="font-size:16px">'+esc(r.name)+'</h3>'+
+    '<div class="meta">'+(book?esc(book.title)+' · ':'')+(need?'<b>'+plural(need,'item')+'</b> to buy':'fully stocked from pantry')+'</div></div>'+
+    '<span class="chev">'+svg('dots')+'</span></div></button>');
+  card.onclick=()=>planMenu(r,entry);
+  return card;
+}
+function planMenu(r,entry){
+  openSheet(r.name,(body,close)=>{
+    body.appendChild(menuList([
+      {label:'Cooked it — use up the ingredients',icon:'check',onClick:()=>{close();cookMeal(r.id);render();toast('Enjoy! Pantry updated for what you used','ok');}},
+      {label:'View recipe',icon:'book',onClick:()=>{close();go('recipe',{id:r.id});}},
+      {label:'Replace with another recipe',icon:'spark',onClick:()=>{close();replacePlan(r.id);}},
+      {label:'Remove from meal plan',icon:'trash',danger:true,onClick:()=>{close();removeFromPlan(r.id);render();toast('Removed — pantry restored, grocery updated');}},
+    ]));
+  });
+}
+function replacePlan(recipeId){
+  removeFromPlan(recipeId);
+  render();
+  openPlanPicker();
+}
+function openPlanPicker(){
+  let q='';
+  const close=openSheet('Add to meal plan',(body)=>{
+    body.appendChild(el('<p class="muted mb">Pick a recipe to cook — searchable by name or ingredient.</p>'));
+    const search=el('<div class="searchbar" style="margin:0 0 12px"><span style="display:flex">'+svg('search')+'</span><input type="search" placeholder="Search recipes & ingredients…"></div>');
+    body.appendChild(search);
+    const listHost=el('<div></div>');body.appendChild(listHost);
+    const inp=search.querySelector('input');
+    function fill(){
+      const qq=q.toLowerCase().trim();
+      let recs=store.data.recipes.filter(r=>!inPlan(r.id));
+      if(qq)recs=recs.filter(r=>r.name.toLowerCase().includes(qq)||(r.ingredients||[]).some(i=>(i.name||'').toLowerCase().includes(qq))||(r.tags||[]).some(t=>t.toLowerCase().includes(qq)));
+      listHost.innerHTML='';
+      if(!recs.length){listHost.appendChild(noResults(qq?'No recipes match “'+esc(qq)+'”':'Every recipe is already in your plan'));return;}
+      const l=el('<div class="list" style="padding:0"></div>');
+      recs.slice(0,50).forEach(r=>{
+        const m=recipeMatch(r);const book=store.cookbook(r.cookbookId);
+        const card=el('<button class="card"><div class="row">'+
+          '<div class="grow"><h3 style="font-size:16px">'+esc(r.name)+'</h3><div class="meta">'+(book?esc(book.title)+' · ':'')+'<b>'+m.have+'/'+m.total+'</b> on hand</div></div>'+
+          '<span class="chev" style="color:var(--terra)">'+svg('plus')+'</span></div></button>');
+        card.onclick=()=>{if(addToPlan(r.id)){close();ui.cookMode='plan';render();toast('Added to plan — pantry updated','ok');}};
+        l.appendChild(card);
+      });
+      listHost.appendChild(l);
+    }
+    inp.oninput=()=>{q=inp.value;fill();};
+    setTimeout(()=>inp.focus(),60);
+    fill();
+  });
+}
+function cookGrocery(wrap){
+  const g=store.data.grocery;
+  const top=el('<div class="list" style="padding-top:6px"></div>');
+  const addb=el('<button class="btn ghost"><span>'+svg('plus')+'</span>Add an item by hand</button>');
+  addb.onclick=()=>openGroceryEdit(null);
+  top.appendChild(addb);wrap.appendChild(top);
+  if(!g.length){
+    wrap.appendChild(emptyState('cart','Your grocery list is empty',
+      'Add recipes to your meal plan and anything you’re short on appears here — quantities add up across recipes (3 eggs + 3 eggs = 6).',
+      [{label:'Go to Meal plan',cls:'herb',icon:'cook',onClick:()=>{ui.cookMode='plan';render();}}]));
+    return;
+  }
+  const pending=g.filter(x=>!x.done),done=g.filter(x=>x.done);
+  wrap.appendChild(el('<div class="section-label">'+plural(pending.length,'item')+' to buy</div>'));
+  const l=el('<div class="list"></div>');
+  pending.forEach(item=>l.appendChild(groceryRow(item)));
+  wrap.appendChild(l);
+  if(done.length){
+    wrap.appendChild(el('<div class="section-label">In the cart · '+done.length+'</div>'));
+    const dl=el('<div class="list"></div>');done.forEach(item=>dl.appendChild(groceryRow(item)));wrap.appendChild(dl);
+  }
+  const foot=el('<div class="list mt"></div>');
+  const b1=el('<button class="btn herb"><span>'+svg('check')+'</span>Move checked into pantry</button>');
+  b1.onclick=()=>checkedToPantry();
+  const b2=el('<button class="btn ghost"><span>'+svg('trash')+'</span>Clear list</button>');
+  b2.onclick=()=>{ if(confirm('Clear the whole grocery list?')){store.data.grocery=[];store.save();render();} };
+  foot.appendChild(b1);foot.appendChild(b2);
+  wrap.appendChild(foot);
+}
+function groceryRow(item){
+  const qty=fmtGroceryQty(item);
+  const card=el('<div class="card"><div class="gro-item '+(item.done?'done':'')+'">'+
+    '<div class="checkbox '+(item.done?'on':'')+'">'+(item.done?svg('check'):'')+'</div>'+
+    '<span class="gname">'+esc(item.name)+'</span>'+
+    (qty?'<span class="gqty">'+esc(qty)+'</span>':'')+
+    '<button class="gdel" aria-label="remove item">'+svg('x')+'</button></div></div>');
+  card.querySelector('.checkbox').onclick=(e)=>{e.stopPropagation();item.done=!item.done;store.save();render();};
+  card.querySelector('.gdel').onclick=(e)=>{e.stopPropagation();store.data.grocery=store.data.grocery.filter(x=>x.id!==item.id);store.save();render();toast('Removed from list');};
+  card.querySelector('.gname').onclick=()=>openGroceryEdit(item);
+  const q=card.querySelector('.gqty');if(q)q.onclick=()=>openGroceryEdit(item);
+  return card;
+}
+function openGroceryEdit(item){
+  const editing=!!item;
+  openSheet(editing?'Edit grocery item':'Add grocery item',(body)=>{
+    body.appendChild(el('<div>'+
+      '<div class="field"><label>Item</label><input id="ge-name" value="'+esc(editing?item.name:'')+'" placeholder="e.g. Eggs"></div>'+
+      '<div class="grid2"><div class="field"><label>Quantity</label><input id="ge-amt" inputmode="decimal" value="'+esc(editing&&item.amount!=null?fmtAmount(item.amount):'')+'" placeholder="6"></div>'+
+      '<div class="field"><label>Unit</label><input id="ge-unit" value="'+esc(editing?item.unit:'')+'" placeholder="cups · g · (blank)"></div></div></div>'));
+  },(foot,close)=>{
+    if(editing){const del=el('<button class="btn danger" style="flex:none;width:50px;padding:0">'+svg('trash')+'</button>');
+      del.onclick=()=>{store.data.grocery=store.data.grocery.filter(x=>x.id!==item.id);store.save();close();render();toast('Removed');};foot.appendChild(del);}
+    const save=el('<button class="btn herb">'+(editing?'Save':'Add to list')+'</button>');
+    save.onclick=()=>{
+      const name=$('#ge-name').value.trim();if(!name){toast('Name the item','warn');return;}
+      const amt=parseAmount($('#ge-amt').value); const unit=$('#ge-unit').value.trim();
+      if(editing){item.name=name;item.amount=amt;item.unit=normUnit(unit);item.key=groceryKey(name,unit);}
+      else{const key=groceryKey(name,unit);const ex=store.data.grocery.find(x=>x.key===key&&!x.done);
+        if(ex)ex.amount=(ex.amount==null?0:ex.amount)+(amt==null?0:amt);
+        else store.data.grocery.push({id:uid(),key,name,amount:amt,unit:normUnit(unit),done:false,recipeIds:[],manual:true});}
+      store.save();close();render();toast(editing?'Saved':'Added','ok');
+    };
+    foot.appendChild(save);
+  });
+}
+
+/* ---- quantity parsing / units (for live inventory + grocery aggregation) ---- */
+const FRAC_VAL={'¼':.25,'½':.5,'¾':.75,'⅓':1/3,'⅔':2/3,'⅕':.2,'⅖':.4,'⅗':.6,'⅘':.8,'⅙':1/6,'⅚':5/6,'⅛':.125,'⅜':.375,'⅝':.625,'⅞':.875};
+function parseAmount(qty){
+  if(qty==null)return null;
+  let s=String(qty).trim().toLowerCase();
+  if(!s)return null;
+  s=s.split(/\s*(?:-|–|to)\s*/)[0].trim()||String(qty).trim().toLowerCase(); // ranges → first value
+  let m=s.match(/^(\d+)\s+(\d+)\/(\d+)/); if(m)return (+m[1])+(+m[2])/(+m[3]);   // 1 1/2
+  m=s.match(/^(\d+)\/(\d+)/); if(m)return (+m[1])/(+m[2]);                        // 1/2
+  if(FRAC_VAL[s[0]]!==undefined)return (s.length>1&&/\d/.test(s[1])?parseFloat(s):FRAC_VAL[s[0]]);
+  m=s.match(/^(\d+(?:\.\d+)?)\s*([¼½¾⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞])?/);
+  if(m)return parseFloat(m[1])+(m[2]?FRAC_VAL[m[2]]:0);
+  return null;
+}
+function fmtAmount(n){
+  if(n==null)return '';
+  const r=Math.round(n);
+  if(Math.abs(n-r)<1e-6)return String(r);
+  const whole=Math.floor(n),frac=n-whole;
+  const map=[[.25,'¼'],[.5,'½'],[.75,'¾'],[1/3,'⅓'],[2/3,'⅔']];
+  for(const[v,g]of map){if(Math.abs(frac-v)<.02)return (whole?whole+' ':'')+g;}
+  return (Math.round(n*100)/100).toString();
+}
+const UNIT_NORM={tbsp:'tbsp',tbs:'tbsp','tbsp.':'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp','tsp.':'tsp',teaspoon:'tsp',teaspoons:'tsp',cup:'cup',cups:'cup',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',g:'g',gram:'g',grams:'g',kg:'kg',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',can:'can',cans:'can',slice:'slice',slices:'slice',stick:'stick',sticks:'stick',head:'head',bunch:'bunch',pinch:'pinch',sprig:'sprig',sprigs:'sprig',
+  /* count synonyms → '' so "Eggs (each)" matches a recipe's "3 eggs" */ each:'',ea:'',count:'',ct:'',pc:'',pcs:'',piece:'',pieces:'',unit:'',units:'',whole:'',x:''};
+function normUnit(u){u=(u||'').toLowerCase().trim().replace(/\.$/,'');return (u in UNIT_NORM)?UNIT_NORM[u]:u;}
+function unitsCompatible(a,b){return normUnit(a)===normUnit(b);}  // '' vs '' = count, also compatible
+function groceryKey(name,unit){return normName(name)+'|'+normUnit(unit);}
+function fmtGroceryQty(item){return [fmtAmount(item.amount),item.unit].filter(Boolean).join(' ');}
+
+/* ---- meal plan = committed recipes; adding decrements pantry, shortfalls → grocery ---- */
+function inPlan(recipeId){return store.data.mealPlan.some(e=>e.recipeId===recipeId);}
+function planEntryFor(recipeId){return store.data.mealPlan.find(e=>e.recipeId===recipeId);}
+function groceryAdd(key,name,amount,unit,recipeId){
+  let g=store.data.grocery.find(x=>x.key===key);
+  if(g){ g.amount=(g.amount==null?0:g.amount)+(amount==null?0:amount);
+    if(recipeId){g.recipeIds=g.recipeIds||[];if(!g.recipeIds.includes(recipeId))g.recipeIds.push(recipeId);} }
+  else { store.data.grocery.push({id:uid(),key,name,amount:(amount==null?null:amount),unit:normUnit(unit),done:false,recipeIds:recipeId?[recipeId]:[],manual:!recipeId}); }
+}
+function addToPlan(recipeId){
+  const r=store.recipe(recipeId); if(!r)return false;
+  if(inPlan(recipeId)){toast('Already in your meal plan','warn');return false;}
+  const entry={id:uid(),recipeId,addedAt:Date.now(),deductions:[],groceryAdds:[]};
+  (r.ingredients||[]).forEach(ing=>{
+    if(!ing.name||!ing.name.trim())return;
+    const need=parseAmount(ing.qty); const need2=(need==null?1:need); const unit=ing.unit||'';
+    const p=store.data.pantry.find(pp=>namesMatch(ing.name,pp.name));
+    let shortfall=need2;
+    if(p){
+      if(unitsCompatible(unit,p.unit||'')){
+        const have=p.qty||0, used=Math.min(need2,have);
+        if(used>0){store.updatePantry(p.id,{qty:have-used});entry.deductions.push({pantryId:p.id,amount:used});}
+        shortfall=need2-used;
+      } else { shortfall=(p.qty||0)>0?0:need2; }   // unit mismatch: assume covered if any stock
+    }
+    if(shortfall>1e-4){
+      const key=groceryKey(ing.name,unit);
+      groceryAdd(key,ing.name.trim(),shortfall,unit,recipeId);
+      entry.groceryAdds.push({key,amount:shortfall});
+    }
+  });
+  store.data.mealPlan.push(entry);
+  store.save();renderNav();
+  return true;
+}
+function removeFromPlan(recipeId){
+  const idx=store.data.mealPlan.findIndex(e=>e.recipeId===recipeId);
+  if(idx<0)return;
+  const entry=store.data.mealPlan[idx];
+  entry.deductions.forEach(d=>{const p=store.pantryItem(d.pantryId);if(p)store.updatePantry(p.id,{qty:(p.qty||0)+d.amount});});
+  entry.groceryAdds.forEach(a=>{
+    const g=store.data.grocery.find(x=>x.key===a.key);
+    if(g&&!g.done){ g.amount=(g.amount==null?null:g.amount-a.amount);
+      if(g.amount==null||g.amount<=1e-4) store.data.grocery=store.data.grocery.filter(x=>x!==g);
+      else { g.recipeIds=(g.recipeIds||[]).filter(id=>id!==recipeId); } }
+  });
+  store.data.mealPlan.splice(idx,1);
+  store.save();renderNav();
+}
+/* mark a planned meal cooked: consume the full recipe from pantry (the reserved part is
+   already deducted, so only take the remainder), clear its grocery items, drop from plan. */
+function cookMeal(recipeId){
+  const entry=planEntryFor(recipeId); const r=store.recipe(recipeId);
+  if(!entry||!r)return;
+  (r.ingredients||[]).forEach(ing=>{
+    if(!ing.name||!ing.name.trim())return;
+    const need=parseAmount(ing.qty); const need2=(need==null?1:need); const unit=ing.unit||'';
+    const p=store.data.pantry.find(pp=>namesMatch(ing.name,pp.name));
+    if(!p)return;
+    const reserved=entry.deductions.filter(d=>d.pantryId===p.id).reduce((s,d)=>s+d.amount,0);
+    const remaining=Math.max(0,need2-reserved);
+    if(remaining>1e-4 && unitsCompatible(unit,p.unit||''))
+      store.updatePantry(p.id,{qty:Math.max(0,(p.qty||0)-remaining)});
+  });
+  entry.groceryAdds.forEach(a=>{
+    const g=store.data.grocery.find(x=>x.key===a.key);
+    if(g&&!g.done){ g.amount=(g.amount==null?null:g.amount-a.amount);
+      if(g.amount==null||g.amount<=1e-4) store.data.grocery=store.data.grocery.filter(x=>x!==g);
+      else g.recipeIds=(g.recipeIds||[]).filter(id=>id!==recipeId); }
+  });
+  store.data.mealPlan=store.data.mealPlan.filter(e=>e.id!==entry.id);
+  store.save();renderNav();
+}
+function checkedToPantry(){
+  const done=store.data.grocery.filter(g=>g.done);
+  if(!done.length){toast('Check off what you bought first','warn');return;}
+  done.forEach(g=>{
+    const add=(g.amount==null?1:g.amount);
+    const p=store.data.pantry.find(pp=>normName(pp.name)===normName(g.name));
+    if(p){ const inc=unitsCompatible(g.unit,p.unit||'')?add:1; store.updatePantry(p.id,{qty:(p.qty||0)+inc}); }
+    else store.addPantry({name:g.name,category:guessCategory(g.name),qty:add,unit:normUnit(g.unit)});
+  });
+  store.data.grocery=store.data.grocery.filter(g=>!g.done);
+  store.save();render();
+  toast(plural(done.length,'item')+' added to pantry','ok');
+}
+
+/* =========================================================================
+   VIEW: Search (global)
+   ========================================================================= */
+function viewSearch(){
+  const wrap=el('<div></div>');
+  wrap.appendChild(topbar({title:'Search',sub:'Books, recipes & pantry'}));
+  wrap.appendChild(searchInput('Search everything…',ui.gq||'',(v)=>{ui.gq=v;fillSearch($('#s-res',wrap));},true));
+  const host=el('<div id="s-res"></div>');wrap.appendChild(host);fillSearch(host);
+  return wrap;
+}
+function fillSearch(host){
+  if(!host)return;
+  const q=(ui.gq||'').toLowerCase().trim();
+  host.innerHTML='';
+  if(!q){
+    host.appendChild(el('<div class="empty" style="padding-top:40px"><div class="ic">'+svg('search')+'</div>'+
+      '<h2>Find anything</h2><p>Search across every cookbook, recipe, ingredient and pantry item in one place.</p></div>'));
+    return;
+  }
+  const books=store.data.cookbooks.filter(c=>c.title.toLowerCase().includes(q)||(c.author||'').toLowerCase().includes(q));
+  const recipes=store.data.recipes.filter(r=>r.name.toLowerCase().includes(q)||
+    (r.ingredients||[]).some(i=>(i.name||'').toLowerCase().includes(q))||(r.tags||[]).some(t=>t.toLowerCase().includes(q)));
+  const pantry=store.data.pantry.filter(p=>p.name.toLowerCase().includes(q)||(p.brand||'').toLowerCase().includes(q));
+  if(!books.length&&!recipes.length&&!pantry.length){host.appendChild(noResults('No matches for “'+esc(q)+'”'));return;}
+  if(recipes.length){
+    host.appendChild(el('<div class="section-label">Recipes · '+recipes.length+'</div>'));
+    const l=el('<div class="list"></div>');recipes.slice(0,20).forEach(r=>l.appendChild(recipeRow(r,true)));host.appendChild(l);
+  }
+  if(books.length){
+    host.appendChild(el('<div class="section-label">Cookbooks · '+books.length+'</div>'));
+    const g=el('<div class="bookgrid"></div>');books.forEach(c=>g.appendChild(bookCard(c)));host.appendChild(g);
+  }
+  if(pantry.length){
+    host.appendChild(el('<div class="section-label">Pantry · '+pantry.length+'</div>'));
+    const l=el('<div class="list"></div>');pantry.slice(0,20).forEach(p=>l.appendChild(pantryRow(p)));host.appendChild(l);
+  }
+}
+
+/* =========================================================================
+   Shared UI builders
+   ========================================================================= */
+function topbar(o){
+  const tb=el('<div class="topbar"><div class="topbar-row"><div style="flex:1"><h1>'+esc(o.title)+'</h1>'+
+    (o.sub?'<div class="sub">'+esc(o.sub)+'</div>':'')+'</div></div></div>');
+  if(o.action){
+    const b=el('<button class="iconbtn '+(o.action.primary?'primary':'')+'" aria-label="'+esc(o.action.label)+'">'+svg(o.action.icon)+'</button>');
+    b.onclick=o.action.onClick;tb.querySelector('.topbar-row').appendChild(b);
+  }
+  return tb;
+}
+function topbarBack(title,action){
+  const tb=el('<div class="topbar"><button class="back">'+svg('back')+'Back</button>'+
+    '<div class="topbar-row"><h1 style="font-size:24px">'+esc(title)+'</h1></div></div>');
+  tb.querySelector('.back').onclick=back;
+  if(action){const b=el('<button class="iconbtn" aria-label="menu">'+svg(action.icon)+'</button>');b.onclick=action.onClick;tb.querySelector('.topbar-row').appendChild(b);}
+  return tb;
+}
+function searchInput(ph,val,onInput,auto){
+  const w=el('<div class="searchbar">'+svg('search')+'<input type="search" placeholder="'+esc(ph)+'" value="'+esc(val||'')+'"><button class="clear hidden">Clear</button></div>');
+  const inp=w.querySelector('input'),clr=w.querySelector('.clear');
+  const sync=()=>clr.classList.toggle('hidden',!inp.value);
+  inp.oninput=()=>{sync();onInput(inp.value);};
+  clr.onclick=()=>{inp.value='';sync();onInput('');inp.focus();};
+  sync(); if(auto)setTimeout(()=>inp.focus(),60);
+  return w;
+}
+function emptyState(icon,title,body,actions){
+  const e=el('<div class="empty"><div class="ic">'+svg(icon)+'</div><h2>'+esc(title)+'</h2><p>'+esc(body)+'</p></div>');
+  if(actions){const box=el('<div style="display:flex;flex-direction:column;gap:10px;max-width:280px;margin:0 auto"></div>');
+    actions.forEach(a=>{const b=el('<button class="btn '+(a.cls||'')+'">'+(a.icon?'<span>'+svg(a.icon)+'</span>':'')+esc(a.label)+'</button>');b.onclick=a.onClick;box.appendChild(b);});
+    e.appendChild(box);}
+  return e;
+}
+function noResults(msg){return el('<div class="empty" style="padding:40px 24px"><p style="margin:0">'+esc(msg)+'</p></div>');}
+
+/* =========================================================================
+   Sheets (bottom modals)
+   ========================================================================= */
+let sheetOpen=false;
+function openSheet(title,buildBody,foot){
+  const root=$('#sheet-root');
+  const scrim=el('<div class="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="sheet-grip"></div>'+
+    '<div class="sheet-head"><h2>'+esc(title)+'</h2><button class="iconbtn" aria-label="Close">'+svg('x')+'</button></div>'+
+    '<div class="sheet-body"></div></div></div>');
+  const sheet=scrim.querySelector('.sheet'),body=scrim.querySelector('.sheet-body');
+  buildBody(body,()=>close());
+  if(foot){const f=el('<div class="sheet-foot"></div>');foot(f,()=>close());sheet.appendChild(f);}
+  root.appendChild(scrim);sheetOpen=true;
+  requestAnimationFrame(()=>scrim.classList.add('open'));
+  function close(){scrim.classList.remove('open');sheetOpen=false;setTimeout(()=>scrim.remove(),280);}
+  scrim.querySelector('.sheet-head .iconbtn').onclick=close;
+  scrim.onclick=(e)=>{if(e.target===scrim)close();};
+  return close;
+}
+
+/* ---- Add cookbook: choose ISBN barcode, cover photo, or manual ---- */
+function openAddCookbook(){
+  openSheet('Add a cookbook',(body,close)=>{
+    body.appendChild(el('<p class="muted mb">Scan the barcode, photograph the cover, or enter it yourself.</p>'));
+    body.appendChild(menuList([
+      {label:'Scan the barcode (ISBN)',icon:'scan',onClick:()=>{close();openISBNScan();}},
+      {label:'Photograph the cover',icon:'book',onClick:()=>{close();openCoverScanner();}},
+      {label:'Enter manually',icon:'keyboard',onClick:()=>{close();openCookbookForm({});}},
+    ]));
+    body.appendChild(el('<div class="card mt" style="padding:12px"><div style="display:flex;gap:10px"><span style="color:var(--terra);flex:none">'+svg('info')+'</span>'+
+      '<div class="muted" style="font-size:13px">The barcode is most accurate. No barcode (older or imported books)? Photograph the cover — CookCapable reads the title and looks up the details for you.</div></div></div>'));
+  });
+}
+function openISBNScan(){
+  openScanSheet({
+    title:'Add a cookbook',
+    hint:'Point at the barcode on the back cover (ISBN). We’ll look up the title and cover automatically.',
+    manualLabel:'Enter ISBN manually',
+    onCode:async(code,statusEl)=>{
+      statusEl.textContent='Looking up '+code+'…';
+      const res=await lookupISBN(code);
+      return res.found
+        ? {ok:true,data:res}
+        : {ok:false,msg:'No match for that ISBN — you can add it by hand.',fallback:{isbn:code}};
+    },
+    onResult:(data)=>openCookbookForm(data),
+    onManual:(data)=>openCookbookForm({isbn:data.isbn||''}),
+    onCover:()=>openCoverScanner(),
+  });
+}
+function openCookbookForm(pre){
+  pre=pre||{};
+  openSheet(pre.id?'Edit cookbook':'New cookbook',(body,close)=>{
+    body.appendChild(el('<div>'+
+      (pre.cover?'<div class="center mb"><img src="'+esc(pre.cover)+'" style="height:120px;border-radius:10px;box-shadow:var(--shadow-lg)" onerror="this.remove()"></div>':'')+
+      '<div class="field"><label>Title</label><input id="f-title" value="'+esc(pre.title||'')+'" placeholder="e.g. Salt, Fat, Acid, Heat"></div>'+
+      '<div class="field"><label>Author</label><input id="f-author" value="'+esc(pre.author||'')+'" placeholder="Author name"></div>'+
+      '<div class="grid2"><div class="field"><label>Publisher</label><input id="f-pub" value="'+esc(pre.publisher||'')+'"></div>'+
+      '<div class="field"><label>Year</label><input id="f-year" value="'+esc(pre.year||'')+'" inputmode="numeric"></div></div>'+
+      '<div class="field"><label>ISBN</label><input id="f-isbn" value="'+esc(pre.isbn||'')+'" inputmode="numeric"></div>'+
+      '<input type="hidden" id="f-cover" value="'+esc(pre.cover||'')+'"></div>'));
+  },(foot,close)=>{
+    const save=el('<button class="btn terra">'+(pre.id?'Save changes':'Add to shelf')+'</button>');
+    save.onclick=()=>{
+      const title=$('#f-title').value.trim();
+      if(!title){toast('Give the cookbook a title','warn');return;}
+      const obj={title,author:$('#f-author').value.trim(),publisher:$('#f-pub').value.trim(),
+        year:$('#f-year').value.trim(),isbn:$('#f-isbn').value.trim(),cover:$('#f-cover').value.trim()};
+      if(pre.id){store.updateCookbook(pre.id,obj);toast('Cookbook updated','ok');}
+      else{const c=store.addCookbook(obj);close();go('cookbook',{id:c.id});toast('Added to your shelf','ok');return;}
+      close();render();
+    };
+    foot.appendChild(save);
+  });
+}
+function cookbookMenu(c){
+  openSheet(c.title,(body,close)=>{
+    const opts=[
+      {label:'Edit details',icon:'edit',onClick:()=>{close();openCookbookForm(c);}},
+      {label:'Add a recipe',icon:'plus',onClick:()=>{close();openAddRecipe(c.id);}},
+      {label:'Delete cookbook',icon:'trash',danger:true,onClick:()=>{
+        if(confirm('Delete “'+c.title+'” and its '+store.recipesOf(c.id).length+' recipes?')){store.deleteCookbook(c.id);close();back();toast('Cookbook deleted');}}},
+    ];
+    body.appendChild(menuList(opts));
+  });
+}
+
+/* ---- Recipe form ---- */
+function openRecipeForm(pre){
+  pre=pre||{}; const editing=!!pre.id;
+  const ings=(pre.ingredients&&pre.ingredients.length)?pre.ingredients.slice():[{qty:'',unit:'',name:''}];
+  openSheet(editing?'Edit recipe':'New recipe',(body,close)=>{
+    const curBook=pre.cookbookId||(store.data.cookbooks[0]&&store.data.cookbooks[0].id)||'';
+    const bookOpts=store.data.cookbooks.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===curBook?'selected':'')+'>'+esc(c.title)+'</option>').join('');
+    body.appendChild(el('<div>'+
+      '<div class="field"><label>Recipe name</label><input id="r-name" value="'+esc(pre.name||'')+'" placeholder="e.g. Roast chicken"></div>'+
+      '<div class="field"><label>Cookbook</label><select id="r-book">'+(bookOpts||'<option value="">— no cookbooks yet —</option>')+'</select></div>'+
+      '<div class="grid3"><div class="field"><label>Time</label><input id="r-time" value="'+esc(pre.time||'')+'" placeholder="45 min"></div>'+
+      '<div class="field"><label>Serves</label><input id="r-serv" value="'+esc(pre.servings||'')+'" placeholder="4"></div>'+
+      '<div class="field"><label>Page</label><input id="r-page" value="'+esc(pre.page||'')+'" inputmode="numeric" placeholder="128"></div></div>'+
+      '<div class="field"><label>Ingredients</label><div id="ings"></div>'+
+      '<button class="addrow" id="add-ing">'+svg('plus')+'Add ingredient</button></div>'+
+      '<div class="field"><label>Method — one step per line</label><textarea id="r-steps" rows="6" placeholder="Preheat oven to 220°C.\nPat the chicken dry and season.\n…">'+esc((pre.steps||[]).join('\n'))+'</textarea></div>'+
+      '<div class="field"><label>Tags (comma separated)</label><input id="r-tags" value="'+esc((pre.tags||[]).join(', '))+'" placeholder="dinner, quick, vegetarian"></div>'+
+      '<div class="field"><label>Notes</label><textarea id="r-note" rows="2" placeholder="Optional notes">'+esc(pre.note||'')+'</textarea></div></div>'));
+    const host=$('#ings',body);
+    function addIng(i){
+      const row=el('<div class="ing-row"><input placeholder="1" value="'+esc(i.qty||'')+'" inputmode="decimal">'+
+        '<input placeholder="cup" value="'+esc(i.unit||'')+'"><input placeholder="ingredient" value="'+esc(i.name||'')+'">'+
+        '<button class="del" aria-label="remove">'+svg('x')+'</button></div>');
+      row.querySelector('.del').onclick=()=>{ if(host.children.length>1)row.remove(); else row.querySelectorAll('input').forEach(x=>x.value=''); };
+      host.appendChild(row);
+    }
+    ings.forEach(addIng);
+    $('#add-ing',body).onclick=()=>{addIng({});host.lastElementChild.querySelector('input:nth-child(3)').focus();};
+  },(foot,close)=>{
+    const save=el('<button class="btn terra">'+(editing?'Save recipe':'Add recipe')+'</button>');
+    save.onclick=()=>{
+      const name=$('#r-name').value.trim();
+      if(!name){toast('Give the recipe a name','warn');return;}
+      const ingredients=[...document.querySelectorAll('#ings .ing-row')].map(r=>{
+        const[q,u,n]=r.querySelectorAll('input');return{qty:q.value.trim(),unit:u.value.trim(),name:n.value.trim()};
+      }).filter(i=>i.name);
+      const obj={cookbookId:($('#r-book')&&$('#r-book').value)||pre.cookbookId,name,time:$('#r-time').value.trim(),servings:$('#r-serv').value.trim(),
+        page:$('#r-page').value.trim(),ingredients,
+        steps:$('#r-steps').value.split('\n').map(s=>s.trim()).filter(Boolean),
+        tags:$('#r-tags').value.split(',').map(s=>s.trim()).filter(Boolean),note:$('#r-note').value.trim()};
+      if(editing){store.updateRecipe(pre.id,obj);toast('Recipe saved','ok');}
+      else{store.addRecipe(obj);toast('Recipe added','ok');}
+      close();render();
+    };
+    foot.appendChild(save);
+  });
+}
+function recipeMenu(r){
+  openSheet(r.name,(body,close)=>{
+    const planned=inPlan(r.id);
+    body.appendChild(menuList([
+      {label:'Edit recipe',icon:'edit',onClick:()=>{close();openRecipeForm(r);}},
+      planned
+        ? {label:'Remove from meal plan',icon:'cook',onClick:()=>{close();removeFromPlan(r.id);render();toast('Removed — pantry restored');}}
+        : {label:'Add to meal plan',icon:'cook',onClick:()=>{close();addToPlan(r.id);render();toast('Added to meal plan','ok');}},
+      {label:'Delete recipe',icon:'trash',danger:true,onClick:()=>{if(confirm('Delete “'+r.name+'”?')){if(inPlan(r.id))removeFromPlan(r.id);store.deleteRecipe(r.id);close();back();toast('Recipe deleted');}}},
+    ]));
+  });
+}
+
+/* =========================================================================
+   Recipe page scanner — auto-capture + on-device OCR + multi-recipe split
+   ========================================================================= */
+function openAddRecipe(cookbookId){
+  openSheet('Add a recipe',(body,close)=>{
+    body.appendChild(el('<p class="muted mb">Capture the page automatically, or enter it yourself.</p>'));
+    body.appendChild(menuList([
+      {label:'Scan from a photo (auto)',icon:'scan',onClick:()=>{close();openRecipeScanner(cookbookId);}},
+      {label:'Type it in',icon:'keyboard',onClick:()=>{close();openRecipeForm({cookbookId});}},
+    ]));
+    body.appendChild(el('<div class="card mt" style="padding:12px"><div style="display:flex;gap:10px"><span style="color:var(--terra);flex:none">'+svg('info')+'</span>'+
+      '<div class="muted" style="font-size:13px">Scanning reads the page with on-device OCR, snaps automatically once the text is sharp and readable, and splits multiple recipes on one page into separate entries for you to confirm.</div></div></div>'));
+  });
+}
+
+/* lazy-load Tesseract.js (bundled locally) only when the scanner is first used */
+let _tessLoad;
+function loadTesseract(){
+  if(window.Tesseract)return Promise.resolve();
+  if(_tessLoad)return _tessLoad;
+  _tessLoad=new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='vendor/tesseract/tesseract.min.js';
+    s.onload=()=>res();s.onerror=()=>rej(new Error('offline'));document.head.appendChild(s);
+  });
+  return _tessLoad;
+}
+async function runOCR(image,onProgress){
+  await loadTesseract();
+  // all engine files are bundled under vendor/tesseract → fully offline OCR.
+  // Worker runs from a blob, so paths must be absolute (relative URLs fail in-worker).
+  const base=new URL('vendor/tesseract/',location.href).href;
+  const worker=await Tesseract.createWorker('eng',1,{
+    workerPath:base+'worker.min.js',
+    corePath:base,
+    langPath:base,
+    logger:m=>{if(m.status==='recognizing text'&&onProgress)onProgress(m.progress);}
+  });
+  try{const{data}=await worker.recognize(image);return data;}
+  finally{try{await worker.terminate();}catch(e){}}
+}
+
+/* image-quality heuristics on a small analysis canvas */
+function sharpness(ctx,w,h){
+  const{data}=ctx.getImageData(0,0,w,h);let sum=0,n=0;
+  for(let y=1;y<h-1;y+=2)for(let x=1;x<w-1;x+=2){
+    const i=(y*w+x)*4,g=data[i]*0.3+data[i+1]*0.59+data[i+2]*0.11;
+    const ir=(y*w+x+1)*4,gr=data[ir]*0.3+data[ir+1]*0.59+data[ir+2]*0.11;
+    const id=((y+1)*w+x)*4,gd=data[id]*0.3+data[id+1]*0.59+data[id+2]*0.11;
+    sum+=Math.abs(gr-g)+Math.abs(gd-g);n++;
+  }
+  return n?sum/n:0;
+}
+function brightness(ctx,w,h){
+  const{data}=ctx.getImageData(0,0,w,h);let s=0,n=0;
+  for(let i=0;i<data.length;i+=40){s+=data[i]*0.3+data[i+1]*0.59+data[i+2]*0.11;n++;}
+  return n?s/n:0;
+}
+function downscalePhoto(canvas){
+  const max=820,scale=Math.min(1,max/canvas.width);
+  if(scale>=1)return canvas.toDataURL('image/jpeg',0.6);
+  const c=document.createElement('canvas');c.width=Math.round(canvas.width*scale);c.height=Math.round(canvas.height*scale);
+  c.getContext('2d').drawImage(canvas,0,0,c.width,c.height);return c.toDataURL('image/jpeg',0.55);
+}
+
+/* generic camera + auto-capture + OCR engine, shared by recipe & cover scanners.
+   opts: {title, hint, minWords, minConf, onResult(text, conf, photoDataUrl)} */
+function openCaptureScanner(opts){
+  let stream=null,raf=0,goodFrames=0,busy=false,closed=false;
+  const minWords=opts.minWords||8, minConf=opts.minConf||50;
+  const closeSheet=openSheet(opts.title,(body)=>{
+    body.appendChild(el('<p class="muted mb">'+esc(opts.hint)+'</p>'));
+    body.appendChild(el('<div class="scan-wrap"><video id="rv" playsinline muted></video><div class="scan-frame"></div><div class="qbadge" id="qbadge">Starting camera…</div></div>'));
+    body.appendChild(el('<div><div class="qmeter-lbl">Page clarity</div><div class="qmeter"><i id="qfill"></i></div></div>'));
+    body.appendChild(el('<div id="ocrprog" class="scan-status"></div>'));
+    body.appendChild(el('<div style="display:flex;gap:10px;margin-top:4px"><button class="btn ghost" id="upbtn"><span>'+svg('book')+'</span>Upload photo</button><button class="btn terra" id="capbtn"><span>'+svg('scan')+'</span>Capture now</button></div>'));
+    body.appendChild(el('<input type="file" accept="image/*" capture="environment" id="upinput" class="hidden">'));
+    const video=$('#rv',body),qbadge=$('#qbadge',body),qfill=$('#qfill',body),prog=$('#ocrprog',body);
+    const acanvas=document.createElement('canvas');
+    $('#upbtn',body).onclick=()=>$('#upinput',body).click();
+    $('#upinput',body).onchange=(e)=>{const f=e.target.files[0];if(f)processFile(f);};
+    $('#capbtn',body).onclick=()=>{if(video.videoWidth&&!busy)captureAndProcess(video);};
+
+    (async function startCam(){
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}});
+        video.srcObject=stream;await video.play();qbadge.textContent='Hold steady…';loop();
+      }catch(e){qbadge.className='qbadge warn';qbadge.textContent='No camera here — upload a photo instead.';}
+    })();
+
+    function loop(){
+      if(closed)return; raf=requestAnimationFrame(loop);
+      if(busy||!video.videoWidth)return;
+      const w=240,h=Math.max(1,Math.round(w*video.videoHeight/video.videoWidth));
+      acanvas.width=w;acanvas.height=h;
+      const ctx=acanvas.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(video,0,0,w,h);
+      const s=sharpness(ctx,w,h),b=brightness(ctx,w,h);
+      qfill.style.width=Math.min(100,Math.round(s*7))+'%';
+      const bright=b>55&&b<235, sharp=s>8.5;
+      if(sharp&&bright){goodFrames++;qbadge.className='qbadge ok';qbadge.textContent=goodFrames>=10?'Capturing…':'Looks good — keep steady';}
+      else{goodFrames=0;qbadge.className='qbadge';qbadge.textContent=!bright?'Adjust the lighting':'Move closer / hold steady';}
+      if(goodFrames>=10){busy=true;captureAndProcess(video);}
+    }
+    function fullCanvas(src){
+      const vw=src.videoWidth||src.naturalWidth,vh=src.videoHeight||src.naturalHeight;
+      const scale=Math.min(1,1600/vw),c=document.createElement('canvas');
+      c.width=Math.round(vw*scale);c.height=Math.round(vh*scale);
+      c.getContext('2d').drawImage(src,0,0,c.width,c.height);return c;
+    }
+    function captureAndProcess(src){busy=true;cancelAnimationFrame(raf);ocrFlow(fullCanvas(src));}
+    function processFile(f){
+      busy=true;cancelAnimationFrame(raf);
+      const img=new Image();img.onload=()=>ocrFlow(fullCanvas(img));
+      img.onerror=()=>{qbadge.className='qbadge warn';qbadge.textContent='Could not open that image.';busy=false;loop();};
+      img.src=URL.createObjectURL(f);
+    }
+    async function ocrFlow(canvas){
+      qbadge.className='qbadge ok';qbadge.textContent='Reading…';prog.textContent='Recognizing text… 0%';
+      let data;
+      try{data=await runOCR(canvas,p=>{prog.textContent='Recognizing text… '+Math.round(p*100)+'%';});}
+      catch(e){prog.textContent='';qbadge.className='qbadge warn';qbadge.textContent='Reader needs internet to load. Use Upload, or type it in.';busy=false;return;}
+      const text=((data&&data.text)||'').trim();
+      const conf=Math.round((data&&data.confidence)||0);
+      const words=text.split(/\s+/).filter(Boolean).length;
+      // acceptance gate: enough clearly-read text before we accept the frame
+      if(words<minWords||conf<minConf){
+        prog.textContent='';qbadge.className='qbadge warn';
+        qbadge.textContent='Text not clear enough — adjusting…';
+        busy=false;goodFrames=0;if(!closed)loop();return;
+      }
+      const photo=downscalePhoto(canvas);
+      stop();closeSheet();
+      try{await Promise.resolve(opts.onResult(text,conf,photo));}
+      catch(err){console.error('scanner onResult failed',err);toast('Something went wrong reading that — try again','warn');}
+    }
+    function stop(){closed=true;cancelAnimationFrame(raf);if(stream)stream.getTracks().forEach(t=>t.stop());}
+    // stop camera if the sheet is dismissed by X / scrim
+    const obs=new MutationObserver(()=>{if(!document.getElementById('rv')){stop();obs.disconnect();}});
+    obs.observe($('#sheet-root'),{childList:true,subtree:true});
+  });
+}
+function openRecipeScanner(cookbookId){
+  openCaptureScanner({
+    title:'Scan a recipe',
+    hint:'Fill the frame with the recipe page and hold steady — CookCapable captures automatically once the text is sharp and clearly readable.',
+    minWords:12, minConf:55,
+    onResult:(text,conf,photo)=>openRecipeReview(cookbookId,parseRecipesFromText(text),photo,conf),
+  });
+}
+function openCoverScanner(){
+  openCaptureScanner({
+    title:'Photograph the cover',
+    hint:'Fill the frame with the front cover or title page. CookCapable reads the title and looks the book up for you.',
+    minWords:2, minConf:35,
+    onResult:async(text,conf,photo)=>{
+      const guess=parseCover(text);
+      if(!guess.query&&!guess.title){openCookbookForm({cover:photo});toast('Add the title to finish','warn');return;}
+      toast('Looking up the book…');
+      const hit=await lookupBook(guess.query,guess.title,guess.author);
+      if(hit.found){
+        if(!hit.cover)hit.cover=photo;       // keep the user's own photo if the catalog has no cover
+        openCookbookForm(hit);
+      }else{
+        openCookbookForm({title:guess.title,author:guess.author,cover:photo});
+      }
+    },
+  });
+}
+/* turn cover OCR text into {title, author, query}. query = title+subtitle text
+   (the most distinctive lines) — the author is kept separate because OCR mangling
+   of accents/hyphens in a name can zero out an otherwise-good catalog search. */
+function parseCover(text){
+  const lines=(text||'').split(/\r?\n/).map(l=>l.replace(/\s+/g,' ').trim()).filter(l=>l.length>=2);
+  if(!lines.length)return{title:'',author:'',query:''};
+  const noise=/^(#?\s*1\b|new york times|national|international|the )?\s*(best\s?seller|bestselling|a cookbook|cookbook|recipes?|over \d+|more than|foreword|introduction|illustrated|winner|james beard|award[- ]winning|fully revised|expanded|edition|volume|copyright|by the author)/i;
+  let author='';
+  const byline=lines.find(l=>/^(written\s+)?by\s+/i.test(l));
+  if(byline)author=byline.replace(/^(written\s+)?by\s+/i,'').trim();
+  const cand=lines.slice(0,9).filter(l=>!noise.test(l)&&l!==byline&&!looksIngredientLine(l));
+  // title (fallback display): prefer a prominent ALL-CAPS line, else the first candidate
+  const caps=cand.find(l=>/[A-Z]/.test(l)&&l===l.toUpperCase()&&l.replace(/[^A-Za-z]/g,'').length>=3);
+  let title=caps||cand[0]||lines[0]||'';
+  if(!author){
+    const name=lines.find(l=>l!==title&&/^([A-Z][A-Za-z.'’-]+\s+){1,2}[A-Z][A-Za-z.'’-]+$/.test(l)&&!noise.test(l));
+    if(name)author=name;
+  }
+  const query=cand.slice(0,4).join(' ').replace(/\s+/g,' ').trim();
+  return{title:title.replace(/[:,]\s*$/,'').trim(),author:author.trim(),query};
+}
+/* general book lookup from a free-text query (Google Books + Open Library, in parallel)
+   → clean metadata + cover. Always resolves quickly; on failure returns the OCR fallback. */
+async function lookupBook(query,fbTitle,fbAuthor){
+  if(!query)return{found:false,title:fbTitle||'',author:fbAuthor||''};
+  const [g,o]=await Promise.all([
+    fetchJSON('https://www.googleapis.com/books/v1/volumes?q='+encodeURIComponent(query)+'&maxResults=1',6500),
+    fetchJSON('https://openlibrary.org/search.json?q='+encodeURIComponent(query)+'&limit=1&fields=title,author_name,first_publish_year,cover_i,isbn,publisher',6500),
+  ]);
+  if(g&&g.totalItems>0){
+    const v=g.items[0].volumeInfo;
+    return{found:true,title:v.title||fbTitle,author:(v.authors||[]).join(', ')||fbAuthor,publisher:v.publisher||'',
+      year:(v.publishedDate||'').slice(0,4),
+      cover:((v.imageLinks&&(v.imageLinks.thumbnail||v.imageLinks.smallThumbnail))||'').replace('http://','https://'),
+      isbn:((v.industryIdentifiers||[]).find(i=>/ISBN_13|ISBN_10/.test(i.type))||{}).identifier||''};
+  }
+  if(o&&o.docs&&o.docs.length){
+    const d=o.docs[0];
+    return{found:true,title:d.title||fbTitle,author:(d.author_name||[]).join(', ')||fbAuthor,
+      year:d.first_publish_year?String(d.first_publish_year):'',publisher:(d.publisher||[])[0]||'',
+      cover:d.cover_i?('https://covers.openlibrary.org/b/id/'+d.cover_i+'-M.jpg'):'',isbn:(d.isbn||[])[0]||''};
+  }
+  return{found:false,title:fbTitle||'',author:fbAuthor||''};
+}
+
+/* ---- OCR text → structured recipe candidates ---- */
+const UNITS=['cup','cups','tablespoon','tablespoons','tbsp','tbs','tbsp.','teaspoon','teaspoons','tsp','tsp.','ounce','ounces','oz','pound','pounds','lb','lbs','gram','grams','g','kg','kilogram','ml','milliliter','liter','litre','l','pinch','pinches','clove','cloves','can','cans','package','packages','pkg','packet','jar','slice','slices','stick','sticks','bunch','sprig','sprigs','head','quart','quarts','pint','pints','gallon','dash','handful','piece','pieces'];
+const FRAC='¼½¾⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞';
+function looksIngredientLine(l){
+  l=l.trim();if(!l)return false;
+  if(new RegExp('^([0-9'+FRAC+'\\u2022\\u25AA\\u25CF\\-\\*])').test(l))return true;
+  const fw=(l.split(/\s+/)[0]||'').toLowerCase().replace(/[^a-z]/g,'');
+  return UNITS.includes(fw);
+}
+function parseIngredientLine(line){
+  let l=line.replace(new RegExp('^[\\u2022\\u25AA\\u25CF\\-\\*\\s]+'),'').trim();
+  let qty='',rest=l;
+  const qm=l.match(new RegExp('^((?:\\d+\\s+)?\\d+\\/\\d+|\\d+(?:\\.\\d+)?(?:\\s*[-\\u2013]\\s*\\d+(?:\\.\\d+)?)?|['+FRAC+']+)\\s+(.*)$'));
+  if(qm){qty=qm[1].replace(/\s+/g,' ').trim();rest=qm[2].trim();}
+  let unit='';
+  const words=rest.split(/\s+/);
+  if(words.length&&UNITS.includes((words[0]||'').toLowerCase().replace(/\.$/,''))){unit=words[0].replace(/\.$/,'');rest=words.slice(1).join(' ');}
+  return{qty,unit,name:rest.trim()};
+}
+function splitIngredientsAndSteps(lines){
+  const idxMethod=lines.findIndex(l=>/^(method|directions?|instructions?|preparation|steps|to (make|prepare|cook|finish)|how to)\b/i.test(l.trim()));
+  const idxIng=lines.findIndex(l=>/^ingredients?\b/i.test(l.trim()));
+  let ings=[],steps=[];
+  if(idxMethod>=0){
+    const start=(idxIng>=0&&idxIng<idxMethod)?idxIng+1:0;
+    ings=lines.slice(start,idxMethod);steps=lines.slice(idxMethod+1);
+  }else{
+    let inSteps=false;const start=idxIng>=0?idxIng+1:0;
+    for(let i=start;i<lines.length;i++){
+      const l=lines[i];
+      const longSentence=l.length>52||(/[.!?]$/.test(l)&&l.split(/\s+/).length>=8);
+      if(!inSteps&&longSentence&&ings.length>=1&&!looksIngredientLine(l))inSteps=true;
+      (inSteps?steps:ings).push(l);
+    }
+  }
+  ings=ings.map(s=>s.trim()).filter(s=>s&&!/^ingredients?\b/i.test(s));
+  steps=steps.map(s=>s.trim()).filter(Boolean);
+  return{ings,steps};
+}
+function isTitleLine(t,nextLines){
+  t=t.trim();if(!t)return false;
+  const words=t.split(/\s+/);
+  if(words.length>8||t.length>46)return false;
+  if(/[.,:;]$/.test(t))return false;
+  if((t.replace(/[^\d]/g,'').length)>2)return false;
+  if(!/[A-Za-z]/.test(t))return false;
+  if(/^(ingredients?|method|directions?|instructions?|serves|makes|prep|cook|total|yield|notes?)\b/i.test(t))return false;
+  if(looksIngredientLine(t))return false;
+  const titleCase = t===t.toUpperCase() || /^[A-Z]/.test(t);
+  if(!titleCase)return false;
+  const cueText=nextLines.join(' ').toLowerCase();
+  const cue=/ingredient|serves|makes|prep|cook time|minute/.test(cueText)||nextLines.some(looksIngredientLine);
+  return cue;
+}
+function parseRecipesFromText(text){
+  const lines=(text||'').split(/\r?\n/).map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean);
+  if(!lines.length)return[];
+  const titleIdx=[];
+  lines.forEach((l,i)=>{if(isTitleLine(l,lines.slice(i+1,i+5)))titleIdx.push(i);});
+  let segments=[];
+  if(titleIdx.length){
+    // capture any leading content before the first title with the first recipe
+    for(let k=0;k<titleIdx.length;k++){
+      const start=titleIdx[k],end=k+1<titleIdx.length?titleIdx[k+1]:lines.length;
+      segments.push({name:lines[start],body:lines.slice(start+1,end)});
+    }
+  }else{
+    segments.push({name:lines[0],body:lines.slice(1)});
+  }
+  const out=[];
+  segments.forEach(seg=>{
+    const{ings,steps}=splitIngredientsAndSteps(seg.body);
+    const ingredients=ings.map(parseIngredientLine).filter(i=>i.name);
+    if(!ingredients.length&&!steps.length&&!seg.name)return;
+    out.push({name:(seg.name||'Untitled recipe').replace(/\s+/g,' ').trim(),ingredients,steps});
+  });
+  return out.length?out:[{name:lines[0]||'Untitled recipe',ingredients:[],steps:lines}];
+}
+
+/* ---- Review detected recipes before saving ---- */
+function openRecipeReview(cookbookId,cands,photo,conf){
+  if(!cands||!cands.length)cands=[{name:'',ingredients:[],steps:[]}];
+  openSheet(cands.length>1?cands.length+' recipes found':'Review recipe',(body)=>{
+    body.appendChild(el('<div class="card mb" style="padding:12px"><div style="display:flex;gap:10px"><span style="color:var(--terra);flex:none">'+svg('info')+'</span>'+
+      '<div class="muted" style="font-size:13px">This is a scanned draft — check names, amounts and steps before saving.'+
+      (conf?' Read confidence ~'+conf+'%.':'')+(cands.length>1?' We split this page into '+cands.length+' recipes; delete or add as needed.':'')+'</div></div></div>'));
+    if(photo)body.appendChild(el('<div class="center mb"><img src="'+photo+'" alt="scanned page" style="max-height:150px;border-radius:12px;box-shadow:var(--shadow)"></div>'));
+    const bookOpts=store.data.cookbooks.map(c=>'<option value="'+esc(c.id)+'" '+(c.id===cookbookId?'selected':'')+'>'+esc(c.title)+'</option>').join('');
+    body.appendChild(el('<div class="field"><label>Save to cookbook</label><select id="rv-book">'+(bookOpts||'<option value="">— no cookbooks —</option>')+'</select></div>'));
+    const host=el('<div id="cands"></div>');body.appendChild(host);
+    cands.forEach((c,i)=>host.appendChild(candBlock(c,i)));
+    const add=el('<button class="addrow" style="padding:10px 0">'+svg('plus')+'Add another recipe</button>');
+    add.onclick=()=>host.appendChild(candBlock({name:'',ingredients:[],steps:[]},host.children.length));
+    body.appendChild(add);
+  },(foot,close)=>{
+    const save=el('<button class="btn terra">Save '+(cands.length>1?'all':'recipe')+'</button>');
+    save.onclick=()=>{
+      const targetBook=($('#rv-book')&&$('#rv-book').value)||cookbookId;
+      const blocks=[...document.querySelectorAll('#cands .cand')];let saved=0;
+      blocks.forEach(bl=>{
+        const name=bl.querySelector('.c-name').value.trim();if(!name)return;
+        const ingredients=[...bl.querySelectorAll('.ing-row')].map(r=>{const[q,u,n]=r.querySelectorAll('input');return{qty:q.value.trim(),unit:u.value.trim(),name:n.value.trim()};}).filter(i=>i.name);
+        const steps=bl.querySelector('.c-steps').value.split('\n').map(s=>s.trim()).filter(Boolean);
+        store.addRecipe({cookbookId:targetBook,name,ingredients,steps,photo,source:'scan'});saved++;
+      });
+      if(!saved){toast('Add at least one recipe name','warn');return;}
+      close();render();toast(plural(saved,'recipe')+' saved','ok');
+    };
+    foot.appendChild(save);
+  });
+}
+function candBlock(c,idx){
+  const bl=el('<div class="cand"><div class="cand-head"><span class="cand-n">'+(idx+1)+'</span>'+
+    '<input class="c-name" placeholder="Recipe name" value="'+esc(c.name||'')+'"><button class="cand-del" aria-label="remove recipe">'+svg('trash')+'</button></div>'+
+    '<div class="cand-sub">Ingredients</div><div class="c-ings"></div>'+
+    '<button class="addrow c-adding">'+svg('plus')+'Add ingredient</button>'+
+    '<div class="cand-sub">Method — one step per line</div>'+
+    '<textarea class="c-steps" rows="4" placeholder="Steps…">'+esc((c.steps||[]).join('\n'))+'</textarea></div>');
+  const ings=$('.c-ings',bl);
+  function addIng(i){
+    const r=el('<div class="ing-row"><input placeholder="1" value="'+esc(i.qty||'')+'"><input placeholder="cup" value="'+esc(i.unit||'')+'"><input placeholder="ingredient" value="'+esc(i.name||'')+'"><button class="del" aria-label="remove">'+svg('x')+'</button></div>');
+    r.querySelector('.del').onclick=()=>{if(ings.children.length>1)r.remove();else r.querySelectorAll('input').forEach(x=>x.value='');};
+    ings.appendChild(r);
+  }
+  (c.ingredients&&c.ingredients.length?c.ingredients:[{}]).forEach(addIng);
+  $('.c-adding',bl).onclick=()=>{addIng({});ings.lastElementChild.querySelectorAll('input')[2].focus();};
+  bl.querySelector('.cand-del').onclick=()=>{if(document.querySelectorAll('#cands .cand').length>1)bl.remove();else toast('Keep at least one recipe','warn');};
+  return bl;
+}
+
+/* ---- Pantry: scan UPC ---- */
+function openAddPantry(){
+  openScanSheet({
+    title:'Add a pantry item',
+    hint:'Scan the UPC barcode on the package. We’ll fill in the name, brand and photo.',
+    manualLabel:'Add without scanning',
+    onCode:async(code,statusEl)=>{
+      statusEl.textContent='Looking up '+code+'…';
+      const res=await lookupUPC(code);
+      return res.found?{ok:true,data:res}:{ok:false,msg:'Not in the food database — add it by hand.',fallback:{upc:code}};
+    },
+    onResult:(data)=>openPantryForm({name:data.name,brand:data.brand,image:data.image,category:data.category,size:data.size,upc:data.upc}),
+    onManual:(data)=>openPantryForm({upc:data.upc||''}),
+  });
+}
+function openPantryForm(pre){
+  pre=pre||{};const editing=!!pre.id;
+  openSheet(editing?'Edit item':'New pantry item',(body,close)=>{
+    body.appendChild(el('<div>'+
+      (pre.image?'<div class="center mb"><img src="'+esc(pre.image)+'" style="height:90px;border-radius:12px" onerror="this.remove()"></div>':'')+
+      '<div class="field"><label>Item name</label><input id="p-name" value="'+esc(pre.name||'')+'" placeholder="e.g. Olive oil"></div>'+
+      '<div class="grid2"><div class="field"><label>Brand</label><input id="p-brand" value="'+esc(pre.brand||'')+'"></div>'+
+      '<div class="field"><label>Size</label><input id="p-size" value="'+esc(pre.size||'')+'" placeholder="500 ml"></div></div>'+
+      '<div class="field"><label>Category</label><select id="p-cat">'+
+        PANTRY_CATS.map(c=>'<option '+(c===(pre.category||'Pantry')?'selected':'')+'>'+c+'</option>').join('')+'</select></div>'+
+      '<div class="grid2"><div class="field"><label>Quantity</label><input id="p-qty" type="number" min="0" step="any" value="'+(pre.qty??1)+'"></div>'+
+      '<div class="field"><label>Unit</label><input id="p-unit" value="'+esc(pre.unit||'')+'" placeholder="each · g · cups"></div></div>'+
+      '<div class="hint" style="margin:-8px 0 6px">Quantity + unit lets CookCapable track usage as you cook (e.g. 12 + each, or 500 + g).</div>'+
+      '<input type="hidden" id="p-img" value="'+esc(pre.image||'')+'"><input type="hidden" id="p-upc" value="'+esc(pre.upc||'')+'"></div>'));
+  },(foot,close)=>{
+    if(pre.id){const del=el('<button class="btn danger" style="flex:none;width:50px;padding:0">'+svg('trash')+'</button>');
+      del.onclick=()=>{if(confirm('Remove '+pre.name+'?')){store.deletePantry(pre.id);close();render();toast('Removed');}};foot.appendChild(del);}
+    const save=el('<button class="btn herb">'+(editing?'Save':'Add to pantry')+'</button>');
+    save.onclick=()=>{
+      const name=$('#p-name').value.trim();if(!name){toast('Name the item','warn');return;}
+      const obj={name,brand:$('#p-brand').value.trim(),size:$('#p-size').value.trim(),
+        category:$('#p-cat').value,qty:Number($('#p-qty').value)||0,unit:normUnit($('#p-unit').value.trim()),
+        image:$('#p-img').value,upc:$('#p-upc').value};
+      if(editing)store.updatePantry(pre.id,obj);else store.addPantry(obj);
+      close();render();toast(editing?'Saved':'Added to pantry','ok');
+    };
+    foot.appendChild(save);
+  });
+}
+
+/* ---- Scanner sheet (shared by ISBN & UPC) ---- */
+function openScanSheet(cfg){
+  let scanner=null,handling=false;
+  const close=openSheet(cfg.title,(body)=>{
+    body.appendChild(el('<p class="muted mb">'+esc(cfg.hint)+'</p>'));
+    body.appendChild(el('<div class="scan-wrap"><div id="reader"></div><div class="scan-frame"></div><div class="scan-line"></div></div>'));
+    body.appendChild(el('<div class="scan-status" id="scan-status">Starting camera…</div>'));
+    const manual='<div class="field mt"><label>'+esc(cfg.manualLabel)+'</label>'+
+      '<div style="display:flex;gap:8px"><input id="manual-code" inputmode="numeric" placeholder="Type the barcode number" style="flex:1">'+
+      '<button class="btn sm terra" id="manual-go" style="width:auto">Look up</button></div>'+
+      '<div class="hint">No camera? Type the number under the barcode.</div></div>';
+    const mEl=el(manual);body.appendChild(mEl);
+    if(cfg.onCover){
+      const cv=el('<button class="btn ghost mt" style="width:100%"><span>'+svg('book')+'</span>No barcode? Photograph the cover</button>');
+      cv.onclick=()=>{stopScanner();close();cfg.onCover();};
+      body.appendChild(cv);
+    }
+    const status=$('#scan-status',body);
+    async function stopScanner(){try{if(scanner){await scanner.stop().catch(()=>{});}}catch(e){}}
+    async function handle(code){
+      if(handling)return;handling=true;
+      await stopScanner();
+      const res=await cfg.onCode(code,status);
+      if(res.ok){close();cfg.onResult(res.data);}
+      else{status.textContent=res.msg||'No match.';
+        if(res.fallback){close();cfg.onManual(res.fallback);} }
+      handling=false;
+    }
+    $('#manual-go',body).onclick=()=>{const v=$('#manual-code',body).value.trim();if(v)handle(v);else toast('Enter a barcode number','warn');};
+    $('#manual-code',body).addEventListener('keydown',e=>{if(e.key==='Enter'){const v=e.target.value.trim();if(v)handle(v);}});
+    // start camera
+    setTimeout(()=>startCamera(status,handle).then(s=>scanner=s).catch(()=>{}),250);
+  });
+  // ensure camera stops when sheet closes via scrim/X
+  const obs=new MutationObserver(()=>{ if(!document.querySelector('#reader')&&scanner){try{scanner.stop().catch(()=>{});}catch(e){}obs.disconnect();} });
+  obs.observe($('#sheet-root'),{childList:true,subtree:true});
+}
+async function startCamera(status,onCode){
+  if(typeof Html5Qrcode==='undefined'){status.innerHTML='Scanner needs an internet connection to load. Use manual entry below. ';return null;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){status.textContent='No camera here — type the barcode below.';return null;}
+  const scanner=new Html5Qrcode('reader',{verbose:false});
+  let done=false;
+  try{
+    await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:150}},
+      (text)=>{ if(done)return;done=true; if(navigator.vibrate)navigator.vibrate(40); onCode(text.replace(/[^0-9Xx]/g,'')); },
+      ()=>{});
+    status.textContent='Scanning… hold steady over the barcode';
+    return scanner;
+  }catch(e){
+    console.warn('camera',e);
+    status.textContent='Camera unavailable (permission denied?). Type the barcode below.';
+    return null;
+  }
+}
+
+/* ---- Generic menu list for sheets ---- */
+function menuList(opts){
+  const l=el('<div class="list" style="padding:0;gap:8px"></div>');
+  opts.forEach(o=>{
+    const b=el('<button class="card"><div class="row"><span style="color:'+(o.danger?'var(--danger)':'var(--terra)')+'">'+svg(o.icon)+'</span>'+
+      '<span class="grow" style="font-weight:600;'+(o.danger?'color:var(--danger)':'')+'">'+esc(o.label)+'</span></div></button>');
+    b.onclick=o.onClick;l.appendChild(b);
+  });
+  return l;
+}
+
+/* =========================================================================
+   Settings / data
+   ========================================================================= */
+function openSettings(){
+  openSheet('CookCapable',(body,close)=>{
+    body.appendChild(el('<p class="muted mb">Your data lives only on this device — nothing is uploaded. Export a backup anytime.</p>'));
+    body.appendChild(menuList([
+      {label:'Export backup (.json)',icon:'book',onClick:exportData},
+      {label:'Import backup',icon:'plus',onClick:importData},
+      {label:'Load sample shelf',icon:'spark',onClick:()=>{close();seedSample();}},
+      {label:'Clear all data',icon:'trash',danger:true,onClick:()=>{if(confirm('Erase everything on this device? This cannot be undone.')){localStorage.removeItem(DB_KEY);store.data={cookbooks:[],recipes:[],pantry:[],grocery:[],meta:{}};close();setTab('cookbooks');toast('All data cleared');}}},
+    ]));
+    body.appendChild(el('<div class="card mt" style="padding:14px"><div style="display:flex;gap:10px"><span style="color:var(--terra)">'+svg('info')+'</span>'+
+      '<div class="muted" style="font-size:13px">Scanning a cookbook’s ISBN logs the <b>book</b> (title, author, cover). The recipes inside aren’t published anywhere, so you add those yourself — by typing or snapping the page. Pantry UPC scans auto-fill from Open Food Facts.</div></div></div>'));
+  });
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(store.data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='cookcapable-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast('Backup downloaded','ok');
+}
+function importData(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='application/json';
+  inp.onchange=()=>{const f=inp.files[0];if(!f)return;const fr=new FileReader();
+    fr.onload=()=>{try{const d=JSON.parse(fr.result);if(!d.cookbooks)throw 0;
+      store.data=Object.assign({cookbooks:[],recipes:[],pantry:[],grocery:[],meta:{}},d);store.save();
+      setTab('cookbooks');toast('Backup restored','ok');}catch(e){toast('That file isn’t a valid backup','warn');}};
+    fr.readAsText(f);};
+  inp.click();
+}
+
+/* =========================================================================
+   Sample data (so the app is alive on first run)
+   ========================================================================= */
+function seedSample(){
+  const c1=store.addCookbook({title:'Salt, Fat, Acid, Heat',author:'Samin Nosrat',publisher:'Simon & Schuster',year:'2017',isbn:'9781476753836',cover:'https://covers.openlibrary.org/b/isbn/9781476753836-M.jpg'});
+  const c2=store.addCookbook({title:'The Food Lab',author:'J. Kenji López-Alt',publisher:'W. W. Norton',year:'2015',isbn:'9780393081084',cover:'https://covers.openlibrary.org/b/isbn/9780393081084-M.jpg'});
+  store.addRecipe({cookbookId:c1.id,name:'Buttermilk-Brined Roast Chicken',time:'1 hr 30 min',servings:'4',page:'310',
+    ingredients:[{qty:'1',unit:'',name:'whole chicken'},{qty:'2',unit:'cups',name:'buttermilk'},{qty:'1',unit:'tbsp',name:'salt'},{qty:'2',unit:'tbsp',name:'olive oil'}],
+    steps:['Brine the chicken in salted buttermilk overnight.','Pat dry and roast at 220°C for 45 minutes.','Rest 10 minutes before carving.'],tags:['dinner','classic']});
+  store.addRecipe({cookbookId:c1.id,name:'Simple Green Salad',time:'10 min',servings:'4',page:'202',
+    ingredients:[{qty:'1',unit:'head',name:'lettuce'},{qty:'3',unit:'tbsp',name:'olive oil'},{qty:'1',unit:'tbsp',name:'lemon juice'},{qty:'1',unit:'pinch',name:'salt'}],
+    steps:['Whisk oil, lemon and salt.','Toss with torn lettuce just before serving.'],tags:['quick','side','vegetarian']});
+  store.addRecipe({cookbookId:c2.id,name:'Foolproof Pan Pizza',time:'1 hr',servings:'2',page:'140',
+    ingredients:[{qty:'2',unit:'cups',name:'flour'},{qty:'1',unit:'cup',name:'water'},{qty:'1',unit:'tsp',name:'yeast'},{qty:'1',unit:'cup',name:'mozzarella'},{qty:'1',unit:'cup',name:'tomato sauce'},{qty:'2',unit:'tbsp',name:'olive oil'}],
+    steps:['Mix dough and let rise overnight in the pan.','Top with sauce and cheese.','Bake hot until the crust is golden.'],tags:['dinner','baking']});
+  store.addRecipe({cookbookId:c2.id,name:'Weeknight Frittata',time:'25 min',servings:'4',page:'88',
+    ingredients:[{qty:'6',unit:'',name:'eggs'},{qty:'1',unit:'',name:'onion'},{qty:'2',unit:'tbsp',name:'olive oil'},{qty:'1',unit:'pinch',name:'salt'}],
+    steps:['Soften the sliced onion in olive oil.','Beat the eggs with salt and pour over.','Finish under the broiler until set.'],tags:['dinner','quick','eggs']});
+  store.addRecipe({cookbookId:c1.id,name:'Shakshuka',time:'30 min',servings:'2',page:'176',
+    ingredients:[{qty:'4',unit:'',name:'eggs'},{qty:'1',unit:'cup',name:'tomato sauce'},{qty:'1',unit:'',name:'onion'},{qty:'2',unit:'tbsp',name:'olive oil'}],
+    steps:['Simmer onion in the tomato sauce.','Make wells and crack in the eggs.','Cover and cook until the whites set.'],tags:['brunch','eggs']});
+  const pantrySeed=[['Olive oil','',1],['Salt','',1],['Lemon','',2],['Lettuce','',1],['Flour','cup',4],['Mozzarella','',1],['Buttermilk','cup',2],['Eggs','each',4]];
+  pantrySeed.forEach(([n,u,q])=>store.addPantry({name:n,category:guessCategory(n),qty:q,unit:u}));
+  store.data.meta.seeded=true;store.save();
+  setTab('cookbooks');toast('Loaded a sample shelf — explore away ','ok');
+}
+
+/* =========================================================================
+   Boot
+   ========================================================================= */
+function addSettingsButton(){
+  // long-press / overflow entry: add a small settings affordance to nav via header is covered per-tab;
+  // expose globally on the brand by adding a hidden gesture: tap sub when on cookbooks is overkill — use FAB-less overflow.
+}
+function boot(){
+  store.load();
+  render();
+  // global settings access: triple-purpose — add a floating settings button on first tab only
+  // (kept minimal; available from Cook→Grocery and via brand). We add it to topbar of each main tab:
+  // Register service worker
+  if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+}
+// expose a couple of handlers for inline use / debugging
+window.cookcapable=window.mise={store,seedSample,openSettings,exportData,parseRecipesFromText,runOCR,parseCover,lookupBook,addToPlan,removeFromPlan,cookMeal,parseAmount,fmtAmount,normUnit,inPlan};
+document.addEventListener('DOMContentLoaded',boot);
+</script>
+</body>
+</html>
