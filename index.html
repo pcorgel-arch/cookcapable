@@ -1771,6 +1771,10 @@ function openSettings(){
       {label:'Load sample shelf',icon:'spark',onClick:()=>{close();seedSample();}},
       {label:'Clear all data',icon:'trash',danger:true,onClick:()=>{if(confirm('Erase everything in your account? This cannot be undone.')){store.data={cookbooks:[],recipes:[],pantry:[],grocery:[],mealPlan:[],meta:{}};store.save();close();setTab('cookbooks');toast('All data cleared');}}},
     ];
+    if(session && (!entitlement || (entitlement.source!=='stripe' && !entitlement.perpetual))){
+      items.unshift({label:'Subscribe — Premium $9.99/mo',icon:'spark',onClick:()=>{
+        location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email);}});
+    }
     if(session)items.push({label:'Sign out',icon:'back',onClick:()=>{close();doSignOut();}});
     body.appendChild(menuList(items));
     body.appendChild(el('<div class="card mt" style="padding:14px"><div style="display:flex;gap:10px"><span style="color:var(--terra)">'+svg('info')+'</span>'+
