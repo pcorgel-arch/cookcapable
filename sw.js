@@ -1,5 +1,5 @@
 /* CookCapable service worker — offline app shell */
-const CACHE = 'cookcapable-v1';
+const CACHE = 'cookcapable-v2';
 const SHELL = [
   './',
   './index.html',
@@ -23,8 +23,8 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // Never cache the live lookup APIs — always go to network, fail soft.
-  if (/googleapis|openlibrary|openfoodfacts|covers\.openlibrary/.test(url.host)) {
+  // Never cache live APIs (lookups + Supabase auth/data) — always network, fail soft.
+  if (/googleapis|openlibrary|openfoodfacts|covers\.openlibrary|supabase\.co/.test(url.host)) {
     e.respondWith(fetch(req).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
     return;
   }

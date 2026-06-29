@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="icons/icon.svg" />
 <link href="fonts/fonts.css" rel="stylesheet" />
 <script src="vendor/html5-qrcode.min.js" defer></script>
+<script src="vendor/supabase.js"></script>
 <style>
 :root{
   --cream:#FBF7F0; --cream-2:#F4ECDF; --paper:#FFFDF9;
@@ -264,7 +265,7 @@ video#rv{width:100%;height:100%;object-fit:cover;display:block}
 
 /* toast */
 #toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 18px + var(--safe-b));
-  translate:-50% 20px;z-index:80;background:var(--ink);color:var(--cream);padding:12px 18px;border-radius:14px;
+  translate:-50% 20px;z-index:120;background:var(--ink);color:var(--cream);padding:12px 18px;border-radius:14px;
   font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .2s,translate .2s;
   max-width:88%;display:flex;align-items:center;gap:9px}
 #toast.show{opacity:1;translate:-50% 0}
@@ -286,9 +287,38 @@ video#rv{width:100%;height:100%;object-fit:cover;display:block}
 .center{text-align:center}
 .mt{margin-top:14px}.mb{margin-bottom:14px}
 .linkbtn{color:var(--terra);font-weight:700;font-size:14px}
+/* ---------- Auth / paywall gate ---------- */
+#gate{position:fixed;inset:0;z-index:90;background:var(--cream);display:none;overflow-y:auto;
+  padding:calc(env(safe-area-inset-top,0px) + 8px) 0 calc(env(safe-area-inset-bottom,0px) + 24px)}
+#gate.show{display:block}
+.gate-wrap{max-width:var(--maxw);margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:24px 26px}
+.gate-brand{text-align:center;margin-bottom:6px}
+.gate-mark{width:72px;height:72px;border-radius:20px;margin:0 auto 16px;display:block;box-shadow:var(--shadow-lg)}
+.gate-brand h1{font-size:34px;margin:0;line-height:1.05}
+.gate-brand .tag{color:var(--ink-2);font-size:14px;margin-top:4px}
+.gate-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);
+  padding:22px 20px;margin-top:24px}
+.gate-card h2{font-size:22px;margin:0 0 4px}
+.gate-card .sub{color:var(--ink-2);font-size:14px;margin:0 0 18px}
+.gate-err{background:var(--danger-soft);color:var(--danger);border-radius:12px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:14px;display:none}
+.gate-err.show{display:block}
+.gate-toggle{display:flex;gap:8px;background:var(--cream-2);border-radius:12px;padding:4px;margin-bottom:18px}
+.gate-toggle button{flex:1;border-radius:9px;padding:9px;font-weight:700;font-size:14px;color:var(--ink-2);background:transparent}
+.gate-toggle button[aria-pressed="true"]{background:var(--paper);color:var(--ink);box-shadow:var(--shadow)}
+.gate-foot{text-align:center;margin-top:18px;font-size:13px;color:var(--ink-2)}
+.gate-foot a,.gate-foot button{color:var(--terra);font-weight:700}
+.gate-divider{display:flex;align-items:center;gap:12px;color:var(--ink-3);font-size:12px;font-weight:700;letter-spacing:.06em;margin:18px 0}
+.gate-divider::before,.gate-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.price-row{display:flex;align-items:baseline;justify-content:center;gap:6px;margin:6px 0 2px}
+.price-row .amt{font-family:"Newsreader",serif;font-size:40px;font-weight:600;color:var(--ink)}
+.price-row .per{color:var(--ink-2);font-size:15px}
+.feat{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:var(--ink);margin:9px 0}
+.feat svg{width:18px;height:18px;color:var(--herb);flex:none;margin-top:1px}
+.trial-pill{display:inline-block;background:var(--herb-soft);color:var(--herb);font-weight:700;font-size:12px;padding:5px 12px;border-radius:999px}
 </style>
 </head>
 <body>
+<div id="gate"></div>
 <div id="app"><div id="screen" class="screen"></div></div>
 <nav class="nav" id="nav"></nav>
 <div id="toast"></div>
@@ -1726,13 +1756,23 @@ function menuList(opts){
    ========================================================================= */
 function openSettings(){
   openSheet('CookCapable',(body,close)=>{
-    body.appendChild(el('<p class="muted mb">Your data lives only on this device — nothing is uploaded. Export a backup anytime.</p>'));
-    body.appendChild(menuList([
+    if(session){
+      const ent=entitlement||{};
+      const status=ent.source==='code'?'Unlocked with access code':ent.source==='trial'?'Free trial':ent.source==='stripe'||ent.source==='revenuecat'?'Subscribed':'Active';
+      body.appendChild(el('<div class="card mb" style="padding:14px"><div style="display:flex;align-items:center;gap:12px">'+
+        '<div class="thumb sq" style="background:var(--herb-soft);color:var(--herb)">'+svg('users')+'</div>'+
+        '<div class="grow"><h3 style="font-size:15px;margin:0">'+esc(session.user.email)+'</h3>'+
+        '<div class="meta" style="color:var(--herb)">'+esc(status)+'</div></div></div></div>'));
+    }
+    body.appendChild(el('<p class="muted mb">Your cookbooks, pantry & plans sync privately to your account. Export a local backup anytime.</p>'));
+    const items=[
       {label:'Export backup (.json)',icon:'book',onClick:exportData},
       {label:'Import backup',icon:'plus',onClick:importData},
       {label:'Load sample shelf',icon:'spark',onClick:()=>{close();seedSample();}},
-      {label:'Clear all data',icon:'trash',danger:true,onClick:()=>{if(confirm('Erase everything on this device? This cannot be undone.')){localStorage.removeItem(DB_KEY);store.data={cookbooks:[],recipes:[],pantry:[],grocery:[],meta:{}};close();setTab('cookbooks');toast('All data cleared');}}},
-    ]));
+      {label:'Clear all data',icon:'trash',danger:true,onClick:()=>{if(confirm('Erase everything in your account? This cannot be undone.')){store.data={cookbooks:[],recipes:[],pantry:[],grocery:[],mealPlan:[],meta:{}};store.save();close();setTab('cookbooks');toast('All data cleared');}}},
+    ];
+    if(session)items.push({label:'Sign out',icon:'back',onClick:()=>{close();doSignOut();}});
+    body.appendChild(menuList(items));
     body.appendChild(el('<div class="card mt" style="padding:14px"><div style="display:flex;gap:10px"><span style="color:var(--terra)">'+svg('info')+'</span>'+
       '<div class="muted" style="font-size:13px">Scanning a cookbook’s ISBN logs the <b>book</b> (title, author, cover). The recipes inside aren’t published anywhere, so you add those yourself — by typing or snapping the page. Pantry UPC scans auto-fill from Open Food Facts.</div></div></div>'));
   });
@@ -1781,24 +1821,189 @@ function seedSample(){
 }
 
 /* =========================================================================
+   Accounts, cloud sync & paywall gate (Supabase)
+   ========================================================================= */
+const SUPA_URL='https://aluvlnosiblrzfxjixzc.supabase.co';
+const SUPA_KEY='sb_publishable_lWTATVhAKaj68vAr4IoYzA_WJ74Yi9D';
+const STRIPE_PAYMENT_LINK='https://buy.stripe.com/test_14A00i4R01at26I2Cs48000';
+let sb=null, session=null, entitlement=null, syncTimer=null, authMode='signin';
+const EMPTY_DATA=()=>({cookbooks:[],recipes:[],pantry:[],grocery:[],mealPlan:[],meta:{}});
+
+function initSupabase(){
+  try{
+    sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{
+      auth:{persistSession:true,autoRefreshToken:true,storageKey:'cc.auth'},
+      // bypass the browser HTTP cache so reads are always fresh (stale GETs broke sync)
+      global:{ fetch:(u,o)=>fetch(u,Object.assign({},o,{cache:'no-store'})) }
+    });
+    return true;
+  }catch(e){ console.warn('supabase init',e); return false; }
+}
+function cacheEnt(e){ try{localStorage.setItem('cc.ent',JSON.stringify({e,ts:Date.now()}));}catch(_){ } }
+function cachedEnt(){ try{const o=JSON.parse(localStorage.getItem('cc.ent')||'null'); if(o&&Date.now()-o.ts<14*864e5)return o.e;}catch(_){ } return null; }
+
+async function evaluateGate(){
+  if(!sb){ showApp(); return; }                    // SDK missing → local-only fallback
+  const { data:{ session:s } } = await sb.auth.getSession();
+  session=s;
+  if(!session){ entitlement=null; renderGate('auth'); return; }
+  let netOk=true;
+  try{ const { data, error } = await sb.rpc('my_entitlement'); if(error){netOk=false;} else {entitlement=data;cacheEnt(data);} }
+  catch(e){ netOk=false; }
+  if(!netOk){ const c=cachedEnt(); if(c&&c.active){ entitlement=c; await syncPull(); showApp(); return; } }
+  if(entitlement&&entitlement.active){ await syncPull(); showApp(); }
+  else { renderGate('paywall'); handleSubReturn(); }
+}
+async function handleSubReturn(){
+  // returning from Stripe Checkout (?sub=success) — the webhook may take a moment, so poll
+  if(!/[?&]sub=success/.test(location.search)||!sb||!session) return;
+  toast('Confirming your subscription…');
+  for(let i=0;i<6;i++){
+    await new Promise(r=>setTimeout(r,2000));
+    try{ const { data }=await sb.rpc('my_entitlement');
+      if(data&&data.active){ entitlement=data; cacheEnt(data); try{history.replaceState({},'',location.pathname);}catch(_){ }
+        await syncPull(); showApp(); toast('Subscription active — welcome!','ok'); return; } }catch(e){}
+  }
+}
+function showApp(){
+  $('#gate').classList.remove('show'); $('#gate').innerHTML='';
+  $('#app').style.display=''; $('#nav').style.display='';
+  render();
+}
+function hideApp(){ $('#app').style.display='none'; $('#nav').style.display='none'; }
+
+/* ---- cloud sync (account data is source of truth; local is the offline cache) ---- */
+function hasData(d){ return d && ['cookbooks','recipes','pantry','grocery','mealPlan'].some(k=>Array.isArray(d[k])&&d[k].length); }
+async function syncPull(){
+  if(!sb||!session) return;
+  try{
+    const { data, error } = await sb.from('user_data').select('data').eq('user_id',session.user.id).maybeSingle();
+    if(error){ console.warn('pull',error); return; }
+    const remote=data&&data.data;
+    if(hasData(remote)){ store.data=Object.assign(EMPTY_DATA(),remote); }
+    else { store.data=EMPTY_DATA(); }
+    localStorage.setItem(DB_KEY,JSON.stringify(store.data));
+  }catch(e){ console.warn('pull',e); }
+}
+function scheduleSync(){ if(!sb||!session)return; clearTimeout(syncTimer); syncTimer=setTimeout(syncPush,800); }
+async function syncPush(){
+  if(!sb||!session) return;
+  try{
+    // a user_data row always exists (created by the signup trigger), so UPDATE is reliable;
+    // insert only as a defensive fallback. (upsert+RLS-on-conflict was flaky.)
+    const { data, error } = await sb.from('user_data')
+      .update({data:store.data,updated_at:new Date().toISOString()})
+      .eq('user_id',session.user.id).select('user_id');
+    if(!error && (!data || !data.length)){
+      await sb.from('user_data').insert({user_id:session.user.id,data:store.data});
+    }
+  }catch(e){ console.warn('push',e); }
+}
+function hookSync(){ const _save=store.save.bind(store); store.save=function(){ _save(); scheduleSync(); }; }
+
+/* ---- auth + code actions ---- */
+async function doSignOut(){
+  try{ if(sb) await sb.auth.signOut(); }catch(e){}
+  session=null; entitlement=null;
+  store.data=EMPTY_DATA(); localStorage.removeItem(DB_KEY); localStorage.removeItem('cc.ent');
+  renderGate('auth');
+}
+async function redeemCode(code){
+  try{ const { data, error } = await sb.rpc('redeem_code',{p_code:code}); if(error) return {ok:false,error:error.message}; return data; }
+  catch(e){ return {ok:false,error:String(e.message||e)}; }
+}
+
+/* ---- gate UI ---- */
+function renderGate(mode){
+  hideApp();
+  const g=$('#gate'); g.classList.add('show');
+  g.innerHTML = mode==='auth'?authScreenHTML():paywallScreenHTML();
+  if(mode==='auth') wireAuth(g); else wirePaywall(g);
+  window.scrollTo(0,0);
+}
+function authScreenHTML(){
+  return '<div class="gate-wrap"><div class="gate-brand">'+
+    '<img class="gate-mark" src="icons/icon-maskable.svg" alt=""><h1>CookCapable</h1><div class="tag">Cook from your shelf</div></div>'+
+    '<div class="gate-card">'+
+      '<div class="gate-toggle"><button data-m="signin" aria-pressed="'+(authMode==='signin')+'">Sign in</button>'+
+      '<button data-m="signup" aria-pressed="'+(authMode==='signup')+'">Create account</button></div>'+
+      '<div class="gate-err" id="g-err"></div>'+
+      '<div class="field"><label>Email</label><input id="g-email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com"></div>'+
+      '<div class="field"><label>Password</label><input id="g-pass" type="password" autocomplete="'+(authMode==='signup'?'new-password':'current-password')+'" placeholder="At least 6 characters"></div>'+
+      '<button class="btn terra" id="g-submit">'+(authMode==='signup'?'Create account':'Sign in')+'</button>'+
+    '</div>'+
+    '<div class="gate-foot">Your cookbooks, pantry & plans stay private to your account and sync across your devices.</div></div>';
+}
+function wireAuth(g){
+  g.querySelectorAll('.gate-toggle button').forEach(b=>b.onclick=()=>{authMode=b.dataset.m;renderGate('auth');});
+  const err=$('#g-err',g), submit=$('#g-submit',g);
+  function showErr(m){ err.textContent=m; err.classList.add('show'); }
+  submit.onclick=async()=>{
+    const email=$('#g-email',g).value.trim(), pw=$('#g-pass',g).value;
+    if(!email||!pw){ showErr('Enter your email and password.'); return; }
+    if(authMode==='signup'&&pw.length<6){ showErr('Password must be at least 6 characters.'); return; }
+    submit.disabled=true; submit.textContent=authMode==='signup'?'Creating…':'Signing in…';
+    const fn=authMode==='signup'?sb.auth.signUp({email,password:pw}):sb.auth.signInWithPassword({email,password:pw});
+    const { data, error }=await fn;
+    if(error){ submit.disabled=false; submit.textContent=authMode==='signup'?'Create account':'Sign in'; showErr(error.message); return; }
+    session=data.session;
+    if(!session){ submit.disabled=false; submit.textContent='Sign in'; showErr('Check your email to confirm your account, then sign in.'); authMode='signin'; return; }
+    await evaluateGate();
+  };
+  $('#g-pass',g).addEventListener('keydown',e=>{if(e.key==='Enter')submit.click();});
+}
+function paywallScreenHTML(){
+  const feat=t=>'<div class="feat">'+svg('check')+'<span>'+t+'</span></div>';
+  return '<div class="gate-wrap"><div class="gate-brand">'+
+    '<img class="gate-mark" src="icons/icon-maskable.svg" alt=""><h1>Unlock CookCapable</h1>'+
+    '<div class="tag">'+(session?esc(session.user.email):'')+'</div></div>'+
+    '<div class="gate-card">'+
+      '<div class="price-row"><span class="amt">$9.99</span><span class="per">/ month</span></div>'+
+      '<div class="center muted" style="margin-bottom:16px">Your free trial has ended · cancel anytime</div>'+
+      feat('Scan cookbooks, recipe pages & pantry items')+feat('Live pantry inventory & meal planning')+feat('Smart aggregated grocery lists')+feat('Private cloud sync across your devices')+
+      '<button class="btn terra mt" id="g-sub">Subscribe</button>'+
+      '<div class="gate-divider">OR</div>'+
+      '<div class="gate-err" id="g-err"></div>'+
+      '<div class="field"><label>Access code</label><input id="g-code" placeholder="Enter your code" autocapitalize="none"></div>'+
+      '<button class="btn ghost" id="g-redeem">Unlock with code</button>'+
+    '</div>'+
+    '<div class="gate-foot"><button id="g-signout">Sign out</button></div></div>';
+}
+function wirePaywall(g){
+  const err=$('#g-err',g);
+  function showErr(m){ err.textContent=m; err.classList.add('show'); }
+  $('#g-sub',g).onclick=()=>{ if(!session)return;
+    location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email); };
+  $('#g-signout',g).onclick=()=>doSignOut();
+  const redeem=$('#g-redeem',g);
+  redeem.onclick=async()=>{
+    const code=$('#g-code',g).value.trim();
+    if(!code){ showErr('Enter your access code.'); return; }
+    redeem.disabled=true; redeem.textContent='Checking…';
+    const r=await redeemCode(code);
+    if(r&&r.ok){ toast('Unlocked — welcome in! ','ok'); await evaluateGate(); }
+    else { redeem.disabled=false; redeem.textContent='Unlock with code';
+      showErr(r&&r.error==='invalid_code'?'That code isn’t valid.':r&&r.error==='code_exhausted'?'That code has reached its limit.':'Could not verify that code — check your connection.'); }
+  };
+  $('#g-code',g).addEventListener('keydown',e=>{if(e.key==='Enter')redeem.click();});
+}
+
+/* =========================================================================
    Boot
    ========================================================================= */
-function addSettingsButton(){
-  // long-press / overflow entry: add a small settings affordance to nav via header is covered per-tab;
-  // expose globally on the brand by adding a hidden gesture: tap sub when on cookbooks is overkill — use FAB-less overflow.
-}
 function boot(){
   store.load();
-  render();
-  // global settings access: triple-purpose — add a floating settings button on first tab only
-  // (kept minimal; available from Cook→Grocery and via brand). We add it to topbar of each main tab:
-  // Register service worker
+  hookSync();
+  if(initSupabase()){
+    sb.auth.onAuthStateChange((_e,s)=>{ session=s; });
+    evaluateGate();
+  } else { showApp(); }
   if('serviceWorker' in navigator && location.protocol.startsWith('http')){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   }
 }
-// expose a couple of handlers for inline use / debugging
-window.cookcapable=window.mise={store,seedSample,openSettings,exportData,parseRecipesFromText,runOCR,parseCover,lookupBook,addToPlan,removeFromPlan,cookMeal,parseAmount,fmtAmount,normUnit,inPlan};
+window.cookcapable=window.mise={store,seedSample,openSettings,exportData,parseRecipesFromText,runOCR,parseCover,lookupBook,addToPlan,removeFromPlan,cookMeal,parseAmount,fmtAmount,normUnit,inPlan,
+  evaluateGate,redeemCode,doSignOut,get sb(){return sb;},get session(){return session;},get entitlement(){return entitlement;}};
 document.addEventListener('DOMContentLoaded',boot);
 </script>
 </body>
