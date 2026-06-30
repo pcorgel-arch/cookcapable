@@ -1,5 +1,5 @@
 /* CookCapable service worker — offline app shell */
-const CACHE = 'cookcapable-v2';
+const CACHE = 'cookcapable-v3';
 const SHELL = [
   './',
   './index.html',
@@ -28,7 +28,20 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(fetch(req).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
     return;
   }
-  // App shell + fonts/scanner: cache-first, then network, then cache fill.
+  // The HTML document → NETWORK-FIRST so app updates always reach users (fall back to cache offline).
+  const isDoc = req.mode === 'navigate'
+    || (url.origin === location.origin && (url.pathname === '/' || /\/$|index\.html$/.test(url.pathname)));
+  if (isDoc) {
+    e.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req).then((h) => h || caches.match('./index.html')))
+    );
+    return;
+  }
+  // Static assets (fonts, scanner, OCR engine, sdk) → cache-first, then network, then cache fill.
   e.respondWith(
     caches.match(req).then((hit) => hit || fetch(req).then((res) => {
       const copy = res.clone();
