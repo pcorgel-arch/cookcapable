@@ -1771,6 +1771,9 @@ function openSettings(){
       {label:'Load sample shelf',icon:'spark',onClick:()=>{close();seedSample();}},
       {label:'Clear all data',icon:'trash',danger:true,onClick:()=>{if(confirm('Erase everything in your account? This cannot be undone.')){store.data={cookbooks:[],recipes:[],pantry:[],grocery:[],mealPlan:[],meta:{}};store.save();close();setTab('cookbooks');toast('All data cleared');}}},
     ];
+    if(session && !(entitlement && entitlement.perpetual)){
+      items.unshift({label:'Have an access code?',icon:'check',onClick:()=>{close();openCodeRedeemSheet();}});
+    }
     if(session && (!entitlement || (entitlement.source!=='stripe' && !entitlement.perpetual))){
       items.unshift({label:'Subscribe — Premium $9.99/mo',icon:'spark',onClick:()=>{
         location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email);}});
@@ -1915,6 +1918,28 @@ async function doSignOut(){
 async function redeemCode(code){
   try{ const { data, error } = await sb.rpc('redeem_code',{p_code:code}); if(error) return {ok:false,error:error.message}; return data; }
   catch(e){ return {ok:false,error:String(e.message||e)}; }
+}
+/* reachable any time from Settings — not just the post-trial paywall */
+function openCodeRedeemSheet(){
+  openSheet('Enter access code',(body)=>{
+    body.appendChild(el('<p class="muted mb">Have an access code? Redeem it here for unrestricted access.</p>'));
+    body.appendChild(el('<div class="gate-err" id="cr-err"></div>'));
+    body.appendChild(el('<div class="field"><label>Access code</label><input id="cr-code" placeholder="Enter your code" autocapitalize="none"></div>'));
+  },(foot,close)=>{
+    const btn=el('<button class="btn terra">Unlock with code</button>');
+    btn.onclick=async()=>{
+      const code=$('#cr-code').value.trim();
+      const err=$('#cr-err');
+      if(!code){err.textContent='Enter your access code.';err.classList.add('show');return;}
+      btn.disabled=true;btn.textContent='Checking…';
+      const r=await redeemCode(code);
+      if(r&&r.ok){ close(); toast('Unlocked — welcome in! ','ok'); await evaluateGate(); }
+      else{ btn.disabled=false;btn.textContent='Unlock with code';
+        err.textContent=r&&r.error==='invalid_code'?'That code isn’t valid.':r&&r.error==='code_exhausted'?'That code has reached its limit.':'Could not verify that code — check your connection.';
+        err.classList.add('show'); }
+    };
+    foot.appendChild(btn);
+  });
 }
 
 /* ---- gate UI ---- */
