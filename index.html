@@ -1774,7 +1774,7 @@ function openSettings(){
     if(session && !(entitlement && entitlement.perpetual)){
       items.unshift({label:'Have an access code?',icon:'check',onClick:()=>{close();openCodeRedeemSheet();}});
     }
-    if(session && entitlement && entitlement.source==='stripe' && entitlement.status==='active'){
+    if(session && entitlement && entitlement.active && entitlement.source==='stripe'){
       items.unshift({label:'Manage / Cancel Subscription',icon:'cook',onClick:()=>openBillingPortal()});
     }
     if(session && (!entitlement || (entitlement.source!=='stripe' && !entitlement.perpetual))){
