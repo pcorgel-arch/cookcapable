@@ -1774,15 +1774,55 @@ function openSettings(){
     if(session && !(entitlement && entitlement.perpetual)){
       items.unshift({label:'Have an access code?',icon:'check',onClick:()=>{close();openCodeRedeemSheet();}});
     }
+    if(session && entitlement && entitlement.source==='stripe' && entitlement.status==='active'){
+      items.unshift({label:'Manage / Cancel Subscription',icon:'cook',onClick:()=>openBillingPortal()});
+    }
     if(session && (!entitlement || (entitlement.source!=='stripe' && !entitlement.perpetual))){
-      items.unshift({label:'Subscribe — Premium $9.99/mo',icon:'spark',onClick:()=>{
-        location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email);}});
+      items.unshift({label:'Subscribe — Premium $9.99/mo',icon:'spark',onClick:()=>{close();openSubscribeConsent();}});
     }
     if(session)items.push({label:'Sign out',icon:'back',onClick:()=>{close();doSignOut();}});
     body.appendChild(menuList(items));
     body.appendChild(el('<div class="card mt" style="padding:14px"><div style="display:flex;gap:10px"><span style="color:var(--terra)">'+svg('info')+'</span>'+
       '<div class="muted" style="font-size:13px">Scanning a cookbook’s ISBN logs the <b>book</b> (title, author, cover). The recipes inside aren’t published anywhere, so you add those yourself — by typing or snapping the page. Pantry UPC scans auto-fill from Open Food Facts.</div></div></div>'));
+    body.appendChild(el('<div class="center mt" style="font-size:12px"><a href="legal/terms.html" target="_blank" style="color:var(--ink-2)">Terms of Service</a> &nbsp;·&nbsp; <a href="legal/privacy.html" target="_blank" style="color:var(--ink-2)">Privacy Policy</a></div>'));
   });
+}
+/* explicit pre-payment disclosure + affirmative consent, shown before redirecting to Stripe checkout */
+function openSubscribeConsent(){
+  let agreeBox; // shared between the body and foot builders via closure — the sheet isn't
+                // attached to the document yet when foot() runs, so document.getElementById fails
+  openSheet('Confirm your subscription',(body)=>{
+    body.appendChild(el('<div class="price-row"><span class="amt">$9.99</span><span class="per">/ month</span></div>'));
+    body.appendChild(el('<p class="muted center mb">Billed monthly. Automatically renews each month at $9.99 USD until you cancel. Cancel anytime, entirely online, from Settings.</p>'));
+    const label=el('<label style="display:flex;align-items:flex-start;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer">'+
+      '<input type="checkbox" id="sc-agree" style="margin-top:3px;width:18px;height:18px;flex:none">'+
+      '<span style="font-size:13.5px;line-height:1.5">I agree to be charged <b>$9.99 USD/month</b>, automatically renewing until I cancel, and to the <a href="legal/terms.html" target="_blank" onclick="event.stopPropagation()">Terms of Service</a> and <a href="legal/privacy.html" target="_blank" onclick="event.stopPropagation()">Privacy Policy</a>.</span></label>');
+    body.appendChild(label);
+    agreeBox=label.querySelector('#sc-agree');
+  },(foot,close)=>{
+    const btn=el('<button class="btn terra" disabled>Continue to Payment</button>');
+    btn.style.opacity='.5';
+    foot.appendChild(btn);
+    agreeBox.addEventListener('change',(e)=>{
+      btn.disabled=!e.target.checked; btn.style.opacity=e.target.checked?'1':'.5';
+    });
+    btn.onclick=()=>{ if(!session||btn.disabled)return;
+      location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email); };
+  });
+}
+/* sends the user to their own Stripe billing portal so they can cancel entirely online, at will */
+async function openBillingPortal(){
+  if(!sb||!session){toast('Sign in first','warn');return;}
+  toast('Opening your billing portal…');
+  try{
+    const { data: { session: s } } = await sb.auth.getSession();
+    const r = await fetch(SUPA_URL+'/functions/v1/create-portal-session',{
+      method:'POST', headers:{ apikey:SUPA_KEY, Authorization:'Bearer '+s.access_token, 'Content-Type':'application/json' }
+    });
+    const j = await r.json();
+    if(j && j.url){ location.href = j.url; }
+    else { toast(j&&j.error?j.error:'Could not open billing portal — try again shortly','warn'); }
+  }catch(e){ toast('Could not open billing portal — check your connection','warn'); }
 }
 function exportData(){
   const blob=new Blob([JSON.stringify(store.data,null,2)],{type:'application/json'});
@@ -1996,13 +2036,12 @@ function paywallScreenHTML(){
       '<div class="field"><label>Access code</label><input id="g-code" placeholder="Enter your code" autocapitalize="none"></div>'+
       '<button class="btn ghost" id="g-redeem">Unlock with code</button>'+
     '</div>'+
-    '<div class="gate-foot"><button id="g-signout">Sign out</button></div></div>';
+    '<div class="gate-foot"><button id="g-signout">Sign out</button><br><a href="legal/terms.html" target="_blank" style="color:var(--ink-3);font-size:12px">Terms</a> &nbsp;·&nbsp; <a href="legal/privacy.html" target="_blank" style="color:var(--ink-3);font-size:12px">Privacy</a></div></div>';
 }
 function wirePaywall(g){
   const err=$('#g-err',g);
   function showErr(m){ err.textContent=m; err.classList.add('show'); }
-  $('#g-sub',g).onclick=()=>{ if(!session)return;
-    location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email); };
+  $('#g-sub',g).onclick=()=>openSubscribeConsent();
   $('#g-signout',g).onclick=()=>doSignOut();
   const redeem=$('#g-redeem',g);
   redeem.onclick=async()=>{
