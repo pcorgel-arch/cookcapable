@@ -1774,10 +1774,11 @@ function openSettings(){
     if(session && !(entitlement && entitlement.perpetual)){
       items.unshift({label:'Have an access code?',icon:'check',onClick:()=>{close();openCodeRedeemSheet();}});
     }
-    if(session && entitlement && entitlement.active && entitlement.source==='stripe'){
+    const isPaidSub = entitlement && (entitlement.source==='stripe' || entitlement.source==='revenuecat');
+    if(session && entitlement && entitlement.active && isPaidSub){
       items.unshift({label:'Manage / Cancel Subscription',icon:'cook',onClick:()=>openBillingPortal()});
     }
-    if(session && (!entitlement || (entitlement.source!=='stripe' && !entitlement.perpetual))){
+    if(session && (!entitlement || (!isPaidSub && !entitlement.perpetual))){
       items.unshift({label:'Subscribe — Premium $9.99/mo',icon:'spark',onClick:()=>{close();openSubscribeConsent();}});
     }
     if(session)items.push({label:'Sign out',icon:'back',onClick:()=>{close();doSignOut();}});
@@ -1789,30 +1790,63 @@ function openSettings(){
 }
 /* explicit pre-payment disclosure + affirmative consent, shown before redirecting to Stripe checkout */
 function openSubscribeConsent(){
+  const native=isNativeAndroid();
   let agreeBox; // shared between the body and foot builders via closure — the sheet isn't
                 // attached to the document yet when foot() runs, so document.getElementById fails
   openSheet('Confirm your subscription',(body)=>{
     body.appendChild(el('<div class="price-row"><span class="amt">$9.99</span><span class="per">/ month</span></div>'));
-    body.appendChild(el('<p class="muted center mb">Billed monthly. Automatically renews each month at $9.99 USD until you cancel. Cancel anytime, entirely online, from Settings.</p>'));
+    body.appendChild(el('<p class="muted center mb">Billed monthly'+(native?' through Google Play':'')+'. Automatically renews each month at $9.99 USD until you cancel. Cancel anytime, entirely online, from Settings.</p>'));
     const label=el('<label style="display:flex;align-items:flex-start;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer">'+
       '<input type="checkbox" id="sc-agree" style="margin-top:3px;width:18px;height:18px;flex:none">'+
       '<span style="font-size:13.5px;line-height:1.5">I agree to be charged <b>$9.99 USD/month</b>, automatically renewing until I cancel, and to the <a href="legal/terms.html" target="_blank" onclick="event.stopPropagation()">Terms of Service</a> and <a href="legal/privacy.html" target="_blank" onclick="event.stopPropagation()">Privacy Policy</a>.</span></label>');
     body.appendChild(label);
     agreeBox=label.querySelector('#sc-agree');
   },(foot,close)=>{
-    const btn=el('<button class="btn terra" disabled>Continue to Payment</button>');
+    const btn=el('<button class="btn terra" disabled>'+(native?'Continue to Google Play':'Continue to Payment')+'</button>');
     btn.style.opacity='.5';
     foot.appendChild(btn);
     agreeBox.addEventListener('change',(e)=>{
       btn.disabled=!e.target.checked; btn.style.opacity=e.target.checked?'1':'.5';
     });
-    btn.onclick=()=>{ if(!session||btn.disabled)return;
-      location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email); };
+    btn.onclick=async()=>{
+      if(!session||btn.disabled)return;
+      if(!native){ location.href=STRIPE_PAYMENT_LINK+'?client_reference_id='+encodeURIComponent(session.user.id)+'&prefilled_email='+encodeURIComponent(session.user.email); return; }
+      btn.disabled=true; btn.textContent='Opening Google Play…';
+      try{ await purchaseViaGooglePlay(); close(); }
+      catch(err){
+        btn.disabled=false; btn.textContent='Continue to Google Play';
+        if(!(err&&err.userCancelled)) toast(err&&err.message?err.message:'Purchase could not be completed','warn');
+      }
+    };
   });
+}
+/* native Android purchase via RevenueCat → Google Play Billing */
+async function purchaseViaGooglePlay(){
+  await ensureRevenueCat();
+  const P=rcPlugin();
+  if(!P||!REVENUECAT_GOOGLE_API_KEY) throw new Error('Subscriptions aren’t available in this build yet.');
+  const { offerings } = await P.getOfferings();
+  const offering = offerings && offerings.current;
+  const pkg = offering && (offering.availablePackages||[])[0];
+  if(!pkg) throw new Error('No subscription is configured yet — try again shortly.');
+  await P.purchasePackage({ aPackage: pkg });
+  toast('Confirming your subscription…');
+  // the RevenueCat webhook writes the entitlement asynchronously — poll briefly, same pattern as Stripe return
+  for(let i=0;i<6;i++){
+    await new Promise(r=>setTimeout(r,1500));
+    try{ const { data } = await sb.rpc('my_entitlement'); if(data&&data.active){ entitlement=data; cacheEnt(data); await syncPull(); showApp(); toast('Subscription active — welcome!','ok'); return; } }catch(e){}
+  }
+  await evaluateGate();
 }
 /* sends the user to their own Stripe billing portal so they can cancel entirely online, at will */
 async function openBillingPortal(){
   if(!sb||!session){toast('Sign in first','warn');return;}
+  if(isNativeAndroid()){
+    // Google Play subscriptions are managed in the Play Store app itself — this satisfies
+    // the "cancel entirely online, at will" requirement on its own.
+    location.href='https://play.google.com/store/account/subscriptions?package='+ANDROID_PACKAGE_ID;
+    return;
+  }
   toast('Opening your billing portal…');
   try{
     const { data: { session: s } } = await sb.auth.getSession();
@@ -1873,6 +1907,22 @@ function seedSample(){
 const SUPA_URL='https://aluvlnosiblrzfxjixzc.supabase.co';
 const SUPA_KEY='sb_publishable_lWTATVhAKaj68vAr4IoYzA_WJ74Yi9D';
 const STRIPE_PAYMENT_LINK='https://buy.stripe.com/28E7sKgt2ggt1x3fCW5wI00';
+// Filled in once the RevenueCat Google Play project + product are created (see PLAY-STORE-LISTING.md).
+const REVENUECAT_GOOGLE_API_KEY='';
+const REVENUECAT_ENTITLEMENT_ID='premium';
+const ANDROID_PACKAGE_ID='com.cookcapable.app';
+function isNativeAndroid(){
+  try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.getPlatform()==='android'); }
+  catch(e){ return false; }
+}
+function rcPlugin(){ return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Purchases; }
+let _rcConfigured=false;
+async function ensureRevenueCat(){
+  if(!isNativeAndroid()||!session||_rcConfigured)return;
+  const P=rcPlugin(); if(!P||!REVENUECAT_GOOGLE_API_KEY)return;
+  try{ await P.configure({apiKey:REVENUECAT_GOOGLE_API_KEY, appUserID:session.user.id}); _rcConfigured=true; }
+  catch(e){ console.warn('RevenueCat configure failed',e); }
+}
 let sb=null, session=null, entitlement=null, syncTimer=null, authMode='signin';
 const EMPTY_DATA=()=>({cookbooks:[],recipes:[],pantry:[],grocery:[],mealPlan:[],meta:{}});
 
@@ -1894,6 +1944,7 @@ async function evaluateGate(){
   const { data:{ session:s } } = await sb.auth.getSession();
   session=s;
   if(!session){ entitlement=null; renderGate('auth'); return; }
+  await ensureRevenueCat();
   let netOk=true;
   try{ const { data, error } = await sb.rpc('my_entitlement'); if(error){netOk=false;} else {entitlement=data;cacheEnt(data);} }
   catch(e){ netOk=false; }
