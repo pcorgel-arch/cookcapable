@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -416,14 +416,48 @@ async function lookupISBN(isbn){
     cover:(k.cover&&(k.cover.medium||k.cover.large))||'',isbn};
   return {found:false,isbn};
 }
+/* Parse a size string like "24 oz", "16 fl oz", "473 mL", "NET WT 16 OZ" into {qty, unit}.
+   oz = dry weight; fl oz = fluid volume. Never conflate them. */
+function parseUpcSize(s){
+  if(!s)return{qty:null,unit:''};
+  s=s.trim();
+  const m1=(r,u)=>{const x=s.match(r);return x?{qty:parseFloat(x[1]),unit:u}:null};
+  return m1(/^(\d+(?:\.\d+)?)\s*fl(?:uid)?\s*oz/i,'fl oz')
+      ||m1(/^(\d+(?:\.\d+)?)\s*oz\b/i,'oz')
+      ||m1(/^(\d+(?:\.\d+)?)\s*lbs?\b/i,'lb')
+      ||m1(/^(\d+(?:\.\d+)?)\s*kg\b/i,'kg')
+      ||m1(/^(\d+(?:\.\d+)?)\s*ml\b/i,'ml')
+      ||m1(/^(\d+(?:\.\d+)?)\s*l\b/i,'l')
+      ||m1(/^(\d+(?:\.\d+)?)\s*g\b/i,'g')
+      ||m1(/^(\d+(?:\.\d+)?)\s*cups?\b/i,'cup')
+      ||m1(/(\d+(?:\.\d+)?)\s*fl(?:uid)?\s*oz/i,'fl oz')
+      ||m1(/(\d+(?:\.\d+)?)\s*oz\b/i,'oz')
+      ||m1(/(\d+(?:\.\d+)?)\s*lbs?\b/i,'lb')
+      ||m1(/(\d+(?:\.\d+)?)\s*kg\b/i,'kg')
+      ||m1(/(\d+(?:\.\d+)?)\s*ml\b/i,'ml')
+      ||m1(/(\d+(?:\.\d+)?)\s*l\b/i,'l')
+      ||m1(/(\d+(?:\.\d+)?)\s*g\b/i,'g')
+      ||m1(/(\d+(?:\.\d+)?)\s*cups?\b/i,'cup')
+      ||{qty:null,unit:''};
+}
 async function lookupUPC(upc){
   upc=(upc||'').replace(/[^0-9]/g,'');
   const j=await fetchJSON('https://world.openfoodfacts.org/api/v2/product/'+upc+'.json?fields=product_name,brands,image_front_small_url,categories_tags_en,quantity');
   if(j&&j.status===1&&j.product){
     const p=j.product, cats=p.categories_tags_en||[];
+    const sizeStr=p.quantity||'';
+    const {qty,unit}=parseUpcSize(sizeStr);
     return {found:true,name:p.product_name||'',brand:(p.brands||'').split(',')[0].trim(),
       image:p.image_front_small_url||'',category:guessCategory(cats.join(' ')+' '+(p.product_name||'')),
-      size:p.quantity||'',upc};
+      size:sizeStr,qty,unit,upc};
+  }
+  // fallback: check shared community database (authenticated users only)
+  if(sb&&session){
+    try{
+      const{data:ci}=await sb.from('community_items').select('*').eq('upc',upc).maybeSingle();
+      if(ci)return{found:true,name:ci.name,brand:ci.brand||'',image:ci.image_url||'',
+        category:ci.category||'Pantry',size:ci.size||'',qty:ci.qty,unit:ci.unit||'',upc,fromCommunity:true};
+    }catch(e){}
   }
   return {found:false,upc};
 }
@@ -980,10 +1014,27 @@ function fmtAmount(n){
   for(const[v,g]of map){if(Math.abs(frac-v)<.02)return (whole?whole+' ':'')+g;}
   return (Math.round(n*100)/100).toString();
 }
-const UNIT_NORM={tbsp:'tbsp',tbs:'tbsp','tbsp.':'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp','tsp.':'tsp',teaspoon:'tsp',teaspoons:'tsp',cup:'cup',cups:'cup',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',g:'g',gram:'g',grams:'g',kg:'kg',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',can:'can',cans:'can',slice:'slice',slices:'slice',stick:'stick',sticks:'stick',head:'head',bunch:'bunch',pinch:'pinch',sprig:'sprig',sprigs:'sprig',
+const UNIT_NORM={tbsp:'tbsp',tbs:'tbsp','tbsp.':'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp','tsp.':'tsp',teaspoon:'tsp',teaspoons:'tsp',cup:'cup',cups:'cup',
+  'fl oz':'fl oz','fl. oz':'fl oz','fl.oz':'fl oz','fluid oz':'fl oz','fluid ounce':'fl oz','fluid ounces':'fl oz',
+  oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',g:'g',gram:'g',grams:'g',kg:'kg',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',can:'can',cans:'can',slice:'slice',slices:'slice',stick:'stick',sticks:'stick',head:'head',bunch:'bunch',pinch:'pinch',sprig:'sprig',sprigs:'sprig',
   /* count synonyms → '' so "Eggs (each)" matches a recipe's "3 eggs" */ each:'',ea:'',count:'',ct:'',pc:'',pcs:'',piece:'',pieces:'',unit:'',units:'',whole:'',x:''};
 function normUnit(u){u=(u||'').toLowerCase().trim().replace(/\.$/,'');return (u in UNIT_NORM)?UNIT_NORM[u]:u;}
-function unitsCompatible(a,b){return normUnit(a)===normUnit(b);}  // '' vs '' = count, also compatible
+/* Unit conversion tables. oz = dry ounce (weight). fl oz = fluid ounce (volume). Never conflate. */
+const UNIT_ML={'ml':1,'l':1000,'tsp':4.929,'tbsp':14.787,'fl oz':29.574,'cup':236.588};
+const UNIT_G={'g':1,'kg':1000,'oz':28.3495,'lb':453.592};
+/* Convert amount from one unit to another. Returns null if incompatible classes (e.g. tbsp vs oz). */
+function convertUnits(amount,fromUnit,toUnit){
+  const fn=normUnit(fromUnit),tn=normUnit(toUnit);
+  if(fn===tn)return amount;
+  const fml=UNIT_ML[fn],tml=UNIT_ML[tn]; if(fml&&tml)return amount*fml/tml;
+  const fg=UNIT_G[fn],tg=UNIT_G[tn]; if(fg&&tg)return amount*fg/tg;
+  return null;
+}
+/* Same class (both volume or both weight) — conversion is possible */
+function unitsCompatible(a,b){
+  const fn=normUnit(a),tn=normUnit(b); if(fn===tn)return true;
+  if(UNIT_ML[fn]&&UNIT_ML[tn])return true; if(UNIT_G[fn]&&UNIT_G[tn])return true; return false;
+}
 function groceryKey(name,unit){return normName(name)+'|'+normUnit(unit);}
 function fmtGroceryQty(item){return [fmtAmount(item.amount),item.unit].filter(Boolean).join(' ');}
 
@@ -1006,11 +1057,22 @@ function addToPlan(recipeId){
     const p=store.data.pantry.find(pp=>namesMatch(ing.name,pp.name));
     let shortfall=need2;
     if(p){
-      if(unitsCompatible(unit,p.unit||'')){
+      const pUnit=p.unit||'';
+      if(normUnit(unit)===normUnit(pUnit)){
+        // identical units — straight subtraction
         const have=p.qty||0, used=Math.min(need2,have);
         if(used>0){store.updatePantry(p.id,{qty:have-used});entry.deductions.push({pantryId:p.id,amount:used});}
         shortfall=need2-used;
-      } else { shortfall=(p.qty||0)>0?0:need2; }   // unit mismatch: assume covered if any stock
+      } else {
+        // attempt cross-unit conversion within same class (e.g. cups ↔ ml, oz ↔ g)
+        const needInPUnit=convertUnits(need2,unit,pUnit);
+        if(needInPUnit!==null){
+          const have=p.qty||0, used=Math.min(needInPUnit,have);
+          if(used>0){store.updatePantry(p.id,{qty:have-used});entry.deductions.push({pantryId:p.id,amount:used});}
+          const usedBack=convertUnits(used,pUnit,unit)??0;
+          shortfall=Math.max(0,need2-usedBack);
+        } else { shortfall=(p.qty||0)>0?0:need2; }   // incompatible classes: assume covered if any stock
+      }
     }
     if(shortfall>1e-4){
       const key=groceryKey(ing.name,unit);
@@ -1046,10 +1108,13 @@ function cookMeal(recipeId){
     const need=parseAmount(ing.qty); const need2=(need==null?1:need); const unit=ing.unit||'';
     const p=store.data.pantry.find(pp=>namesMatch(ing.name,pp.name));
     if(!p)return;
+    const pUnit=p.unit||'';
+    // deductions are always stored in pantry units; express recipe need in pantry units too
     const reserved=entry.deductions.filter(d=>d.pantryId===p.id).reduce((s,d)=>s+d.amount,0);
-    const remaining=Math.max(0,need2-reserved);
-    if(remaining>1e-4 && unitsCompatible(unit,p.unit||''))
-      store.updatePantry(p.id,{qty:Math.max(0,(p.qty||0)-remaining)});
+    const need2InPUnit=normUnit(unit)===normUnit(pUnit)?need2:convertUnits(need2,unit,pUnit);
+    if(need2InPUnit===null)return; // incompatible classes — skip deduction
+    const toDeduct=Math.max(0,need2InPUnit-reserved);
+    if(toDeduct>1e-4)store.updatePantry(p.id,{qty:Math.max(0,(p.qty||0)-toDeduct)});
   });
   entry.groceryAdds.forEach(a=>{
     const g=store.data.grocery.find(x=>x.key===a.key);
@@ -1066,7 +1131,7 @@ function checkedToPantry(){
   done.forEach(g=>{
     const add=(g.amount==null?1:g.amount);
     const p=store.data.pantry.find(pp=>normName(pp.name)===normName(g.name));
-    if(p){ const inc=unitsCompatible(g.unit,p.unit||'')?add:1; store.updatePantry(p.id,{qty:(p.qty||0)+inc}); }
+    if(p){ const conv=convertUnits(add,g.unit||'',p.unit||''); store.updatePantry(p.id,{qty:(p.qty||0)+(conv!=null?Math.max(0,conv):add)}); }
     else store.addPantry({name:g.name,category:guessCategory(g.name),qty:add,unit:normUnit(g.unit)});
   });
   store.data.grocery=store.data.grocery.filter(g=>!g.done);
@@ -1651,23 +1716,26 @@ function openAddPantry(){
       const res=await lookupUPC(code);
       return res.found?{ok:true,data:res}:{ok:false,msg:'Not in the food database — add it by hand.',fallback:{upc:code}};
     },
-    onResult:(data)=>openPantryForm({name:data.name,brand:data.brand,image:data.image,category:data.category,size:data.size,upc:data.upc}),
-    onManual:(data)=>openPantryForm({upc:data.upc||''}),
+    onResult:(data)=>openPantryForm({name:data.name,brand:data.brand,image:data.image,category:data.category,size:data.size,qty:data.qty!=null?data.qty:undefined,unit:data.unit,upc:data.upc}),
+    onManual:(data)=>openPantryForm({upc:data.upc||'',manualUpc:true}),
   });
 }
 function openPantryForm(pre){
   pre=pre||{};const editing=!!pre.id;
+  const req=!!pre.manualUpc; // brand + name + unit required when UPC scanned but not found in any database
+  const star=req?'<span style="color:var(--terra)"> *</span>':'';
   openSheet(editing?'Edit item':'New pantry item',(body,close)=>{
     body.appendChild(el('<div>'+
       (pre.image?'<div class="center mb"><img src="'+esc(pre.image)+'" style="height:90px;border-radius:12px" onerror="this.remove()"></div>':'')+
-      '<div class="field"><label>Item name</label><input id="p-name" value="'+esc(pre.name||'')+'" placeholder="e.g. Olive oil"></div>'+
-      '<div class="grid2"><div class="field"><label>Brand</label><input id="p-brand" value="'+esc(pre.brand||'')+'"></div>'+
-      '<div class="field"><label>Size</label><input id="p-size" value="'+esc(pre.size||'')+'" placeholder="500 ml"></div></div>'+
+      (req?'<p class="muted" style="font-size:13px;margin-bottom:12px">Not in the database yet — fill in the details below and you\'ll help future users scanning this same barcode get it auto-filled.</p>':'')+
+      '<div class="field"><label>Item name'+star+'</label><input id="p-name" value="'+esc(pre.name||'')+'" placeholder="e.g. Mayonnaise"></div>'+
+      '<div class="grid2"><div class="field"><label>Brand'+star+'</label><input id="p-brand" value="'+esc(pre.brand||'')+'" placeholder="e.g. Hellmann\'s"></div>'+
+      '<div class="field"><label>Size</label><input id="p-size" value="'+esc(pre.size||'')+'" placeholder="24 oz"></div></div>'+
       '<div class="field"><label>Category</label><select id="p-cat">'+
         PANTRY_CATS.map(c=>'<option '+(c===(pre.category||'Pantry')?'selected':'')+'>'+c+'</option>').join('')+'</select></div>'+
-      '<div class="grid2"><div class="field"><label>Quantity</label><input id="p-qty" type="number" min="0" step="any" value="'+(pre.qty??1)+'"></div>'+
-      '<div class="field"><label>Unit</label><input id="p-unit" value="'+esc(pre.unit||'')+'" placeholder="each · g · cups"></div></div>'+
-      '<div class="hint" style="margin:-8px 0 6px">Quantity + unit lets CookCapable track usage as you cook (e.g. 12 + each, or 500 + g).</div>'+
+      '<div class="grid2"><div class="field"><label>Quantity</label><input id="p-qty" type="number" min="0" step="any" value="'+(pre.qty!=null?pre.qty:1)+'"></div>'+
+      '<div class="field"><label>Unit'+star+'</label><input id="p-unit" value="'+esc(pre.unit||'')+'" placeholder="oz · fl oz · g · cups"></div></div>'+
+      '<div class="hint" style="margin:-8px 0 6px">Quantity + unit lets CookCapable track usage as you cook (e.g. 30 + fl oz, or 454 + g).</div>'+
       '<input type="hidden" id="p-img" value="'+esc(pre.image||'')+'"><input type="hidden" id="p-upc" value="'+esc(pre.upc||'')+'"></div>'));
   },(foot,close)=>{
     if(pre.id){const del=el('<button class="btn danger" style="flex:none;width:50px;padding:0">'+svg('trash')+'</button>');
@@ -1675,10 +1743,14 @@ function openPantryForm(pre){
     const save=el('<button class="btn herb">'+(editing?'Save':'Add to pantry')+'</button>');
     save.onclick=()=>{
       const name=$('#p-name').value.trim();if(!name){toast('Name the item','warn');return;}
-      const obj={name,brand:$('#p-brand').value.trim(),size:$('#p-size').value.trim(),
-        category:$('#p-cat').value,qty:Number($('#p-qty').value)||0,unit:normUnit($('#p-unit').value.trim()),
+      const brand=$('#p-brand').value.trim(),unit=normUnit($('#p-unit').value.trim());
+      if(req&&!brand){toast('Brand is required — helps identify this barcode for everyone','warn');return;}
+      if(req&&!unit){toast('Unit is required — e.g. oz, fl oz, g, cups','warn');return;}
+      const obj={name,brand,size:$('#p-size').value.trim(),
+        category:$('#p-cat').value,qty:parseFloat($('#p-qty').value)||0,unit,
         image:$('#p-img').value,upc:$('#p-upc').value};
       if(editing)store.updatePantry(pre.id,obj);else store.addPantry(obj);
+      if(pre.manualUpc&&pre.upc)contributeCommunityItem(pre.upc,obj);
       close();render();toast(editing?'Saved':'Added to pantry','ok');
     };
     foot.appendChild(save);
@@ -1754,37 +1826,106 @@ function menuList(opts){
 /* =========================================================================
    Settings / data
    ========================================================================= */
+/* Save a manually-entered UPC item to the shared community database so future users
+   scanning the same barcode get it auto-filled. Fire-and-forget; errors are non-fatal. */
+async function contributeCommunityItem(upc,obj){
+  if(!sb||!session||!upc)return;
+  try{
+    await sb.from('community_items').upsert({
+      upc,name:obj.name,brand:obj.brand||'',size:obj.size||'',
+      qty:obj.qty||null,unit:obj.unit||'',category:obj.category||'Pantry',
+      image_url:obj.image||null,last_updated:new Date().toISOString()
+    },{onConflict:'upc'});
+  }catch(e){console.warn('community item contribution',e);}
+}
+function openChangePassword(){
+  openSheet('Change password',(body)=>{
+    body.appendChild(el('<div>'+
+      '<div class="gate-err" id="cp-err"></div>'+
+      '<div class="field"><label>New password</label><input id="cp-new" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>'+
+      '<div class="field"><label>Confirm password</label><input id="cp-conf" type="password" autocomplete="new-password" placeholder="Same password again"></div></div>'));
+  },(foot,close)=>{
+    const btn=el('<button class="btn terra">Update password</button>');
+    btn.onclick=async()=>{
+      const np=$('#cp-new').value,nc=$('#cp-conf').value;
+      const err=$('#cp-err');
+      if(np.length<6){err.textContent='Password must be at least 6 characters.';err.classList.add('show');return;}
+      if(np!==nc){err.textContent='Passwords don\'t match.';err.classList.add('show');return;}
+      btn.disabled=true;btn.textContent='Updating…';
+      const{error}=await sb.auth.updateUser({password:np});
+      if(error){btn.disabled=false;btn.textContent='Update password';err.textContent=error.message;err.classList.add('show');}
+      else{close();toast('Password updated','ok');}
+    };
+    foot.appendChild(btn);
+  });
+}
+function showPasswordReset(){
+  hideApp();
+  const g=$('#gate');g.classList.add('show');
+  g.innerHTML='<div class="gate-wrap"><div class="gate-brand">'+
+    '<img class="gate-mark" src="icons/icon-maskable.svg" alt=""><h1>New Password</h1>'+
+    '<div class="tag">Set a new password for your account</div></div>'+
+    '<div class="gate-card">'+
+      '<div class="gate-err" id="pr-err"></div>'+
+      '<div class="field"><label>New password</label><input id="pr-pass" type="password" autocomplete="new-password" placeholder="At least 6 characters"></div>'+
+      '<div class="field"><label>Confirm password</label><input id="pr-pass2" type="password" autocomplete="new-password" placeholder="Same password again"></div>'+
+      '<button class="btn terra" id="pr-submit">Set new password</button>'+
+    '</div>'+
+    '<div class="gate-foot"><a href="legal/terms.html" target="_blank" style="color:var(--ink-3);font-size:12px">Terms</a> &nbsp;·&nbsp; <a href="legal/privacy.html" target="_blank" style="color:var(--ink-3);font-size:12px">Privacy</a></div></div>';
+  const err=$('#pr-err'),sub=$('#pr-submit');
+  sub.onclick=async()=>{
+    const pw=$('#pr-pass').value,pw2=$('#pr-pass2').value;
+    if(pw.length<6){err.textContent='Password must be at least 6 characters.';err.classList.add('show');return;}
+    if(pw!==pw2){err.textContent='Passwords don\'t match.';err.classList.add('show');return;}
+    sub.disabled=true;sub.textContent='Saving…';
+    const{error}=await sb.auth.updateUser({password:pw});
+    if(error){sub.disabled=false;sub.textContent='Set new password';err.textContent=error.message;err.classList.add('show');}
+    else{toast('Password updated — you\'re signed in','ok');await evaluateGate();}
+  };
+}
 function openSettings(){
   openSheet('CookCapable',(body,close)=>{
+    // Account info card
     if(session){
       const ent=entitlement||{};
-      const status=ent.source==='code'?'Unlocked with access code':ent.source==='trial'?'Free trial':ent.source==='stripe'||ent.source==='revenuecat'?'Subscribed':'Active';
+      const status=ent.source==='code'?'Unlocked with access code':ent.source==='trial'?'Free trial':(ent.source==='stripe'||ent.source==='revenuecat')?'Premium subscriber':'Active';
       body.appendChild(el('<div class="card mb" style="padding:14px"><div style="display:flex;align-items:center;gap:12px">'+
         '<div class="thumb sq" style="background:var(--herb-soft);color:var(--herb)">'+svg('users')+'</div>'+
         '<div class="grow"><h3 style="font-size:15px;margin:0">'+esc(session.user.email)+'</h3>'+
         '<div class="meta" style="color:var(--herb)">'+esc(status)+'</div></div></div></div>'));
     }
-    body.appendChild(el('<p class="muted mb">Your cookbooks, pantry & plans sync privately to your account. Export a local backup anytime.</p>'));
-    const items=[
-      {label:'Export backup (.json)',icon:'book',onClick:exportData},
-      {label:'Import backup',icon:'plus',onClick:importData},
+    // Subscription section
+    const isPaidSub=entitlement&&(entitlement.source==='stripe'||entitlement.source==='revenuecat');
+    const hasPerp=entitlement&&entitlement.perpetual;
+    if(session){
+      body.appendChild(el('<div class="section-label" style="padding-left:0;padding-top:4px">Subscription</div>'));
+      const subItems=[];
+      if(entitlement&&entitlement.active&&isPaidSub){
+        subItems.push({label:'Manage or cancel subscription',icon:'cook',onClick:()=>openBillingPortal()});
+      } else if(!hasPerp){
+        subItems.push({label:'Subscribe — Premium $9.99/mo',icon:'spark',onClick:()=>{close();openSubscribeConsent();}});
+        subItems.push({label:'Have an access code?',icon:'check',onClick:()=>{close();openCodeRedeemSheet();}});
+      }
+      if(subItems.length)body.appendChild(menuList(subItems));
+      else body.appendChild(el('<div class="muted" style="font-size:13px;padding:6px 2px 2px">You have lifetime access — no subscription needed.</div>'));
+    }
+    // Account management section
+    body.appendChild(el('<div class="section-label" style="padding-left:0;padding-top:18px">Account</div>'));
+    const acctItems=[];
+    if(session)acctItems.push({label:'Change password',icon:'edit',onClick:()=>openChangePassword()});
+    acctItems.push({label:'Export backup (.json)',icon:'book',onClick:exportData});
+    acctItems.push({label:'Import backup',icon:'plus',onClick:importData});
+    body.appendChild(menuList(acctItems));
+    // App section
+    body.appendChild(el('<div class="section-label" style="padding-left:0;padding-top:18px">App</div>'));
+    const appItems=[
       {label:'Load sample shelf',icon:'spark',onClick:()=>{close();seedSample();}},
-      {label:'Clear all data',icon:'trash',danger:true,onClick:()=>{if(confirm('Erase everything in your account? This cannot be undone.')){store.data={cookbooks:[],recipes:[],pantry:[],grocery:[],mealPlan:[],meta:{}};store.save();close();setTab('cookbooks');toast('All data cleared');}}},
+      {label:'Clear all data',icon:'trash',danger:true,onClick:()=>{if(confirm('Erase everything? This cannot be undone.')){store.data=EMPTY_DATA();store.save();close();setTab('cookbooks');toast('All data cleared');}}},
     ];
-    if(session && !(entitlement && entitlement.perpetual)){
-      items.unshift({label:'Have an access code?',icon:'check',onClick:()=>{close();openCodeRedeemSheet();}});
-    }
-    const isPaidSub = entitlement && (entitlement.source==='stripe' || entitlement.source==='revenuecat');
-    if(session && entitlement && entitlement.active && isPaidSub){
-      items.unshift({label:'Manage / Cancel Subscription',icon:'cook',onClick:()=>openBillingPortal()});
-    }
-    if(session && (!entitlement || (!isPaidSub && !entitlement.perpetual))){
-      items.unshift({label:'Subscribe — Premium $9.99/mo',icon:'spark',onClick:()=>{close();openSubscribeConsent();}});
-    }
-    if(session)items.push({label:'Sign out',icon:'back',onClick:()=>{close();doSignOut();}});
-    body.appendChild(menuList(items));
+    if(session)appItems.push({label:'Sign out',icon:'back',onClick:()=>{close();doSignOut();}});
+    body.appendChild(menuList(appItems));
     body.appendChild(el('<div class="card mt" style="padding:14px"><div style="display:flex;gap:10px"><span style="color:var(--terra)">'+svg('info')+'</span>'+
-      '<div class="muted" style="font-size:13px">Scanning a cookbook’s ISBN logs the <b>book</b> (title, author, cover). The recipes inside aren’t published anywhere, so you add those yourself — by typing or snapping the page. Pantry UPC scans auto-fill from Open Food Facts.</div></div></div>'));
+      '<div class="muted" style="font-size:13px">Scanning a cookbook’s ISBN logs the <b>book</b>. Recipes inside aren’t published anywhere — add them by typing or snapping the page. Pantry UPC scans auto-fill from Open Food Facts and a shared community database.</div></div></div>'));
     body.appendChild(el('<div class="center mt" style="font-size:12px"><a href="legal/terms.html" target="_blank" style="color:var(--ink-2)">Terms of Service</a> &nbsp;·&nbsp; <a href="legal/privacy.html" target="_blank" style="color:var(--ink-2)">Privacy Policy</a></div>'));
   });
 }
@@ -2050,6 +2191,7 @@ function authScreenHTML(){
       '<div class="gate-err" id="g-err"></div>'+
       '<div class="field"><label>Email</label><input id="g-email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com"></div>'+
       '<div class="field"><label>Password</label><input id="g-pass" type="password" autocomplete="'+(authMode==='signup'?'new-password':'current-password')+'" placeholder="At least 6 characters"></div>'+
+      (authMode==='signin'?'<div style="text-align:right;margin:-8px 0 14px"><button class="linkbtn" id="g-forgot" style="font-size:13px">Forgot password?</button></div>':'')+
       '<button class="btn terra" id="g-submit">'+(authMode==='signup'?'Create account':'Sign in')+'</button>'+
     '</div>'+
     '<div class="gate-foot">Your cookbooks, pantry & plans stay private to your account and sync across your devices.</div></div>';
@@ -2071,6 +2213,19 @@ function wireAuth(g){
     await evaluateGate();
   };
   $('#g-pass',g).addEventListener('keydown',e=>{if(e.key==='Enter')submit.click();});
+  const forgot=$('#g-forgot',g);
+  if(forgot) forgot.onclick=async()=>{
+    const email=$('#g-email',g).value.trim();
+    if(!email){showErr('Enter your email address above first.');return;}
+    forgot.disabled=true;forgot.textContent='Sending…';
+    const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href});
+    forgot.disabled=false;forgot.textContent='Forgot password?';
+    if(error){showErr(error.message);}
+    else{
+      err.style.cssText='background:var(--herb-soft);color:var(--herb)';
+      err.textContent='Reset email sent — check your inbox.';err.classList.add('show');
+    }
+  };
 }
 function paywallScreenHTML(){
   const feat=t=>'<div class="feat">'+svg('check')+'<span>'+t+'</span></div>';
@@ -2114,7 +2269,7 @@ function boot(){
   store.load();
   hookSync();
   if(initSupabase()){
-    sb.auth.onAuthStateChange((_e,s)=>{ session=s; });
+    sb.auth.onAuthStateChange((event,s)=>{ session=s; if(event==='PASSWORD_RECOVERY')showPasswordReset(); });
     evaluateGate();
   } else { showApp(); }
   if('serviceWorker' in navigator && location.protocol.startsWith('http')){
