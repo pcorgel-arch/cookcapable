@@ -422,7 +422,7 @@ function parseUpcSize(s){
   if(!s)return{qty:null,unit:''};
   s=s.trim();
   const m1=(r,u)=>{const x=s.match(r);return x?{qty:parseFloat(x[1]),unit:u}:null};
-  return m1(/^(\d+(?:\.\d+)?)\s*fl(?:uid)?\s*oz/i,'fl oz')
+  return m1(/^(\d+(?:\.\d+)?)\s*fl\.?(?:uid)?\s*oz/i,'fl oz')
       ||m1(/^(\d+(?:\.\d+)?)\s*oz\b/i,'oz')
       ||m1(/^(\d+(?:\.\d+)?)\s*lbs?\b/i,'lb')
       ||m1(/^(\d+(?:\.\d+)?)\s*kg\b/i,'kg')
@@ -430,7 +430,7 @@ function parseUpcSize(s){
       ||m1(/^(\d+(?:\.\d+)?)\s*l\b/i,'l')
       ||m1(/^(\d+(?:\.\d+)?)\s*g\b/i,'g')
       ||m1(/^(\d+(?:\.\d+)?)\s*cups?\b/i,'cup')
-      ||m1(/(\d+(?:\.\d+)?)\s*fl(?:uid)?\s*oz/i,'fl oz')
+      ||m1(/(\d+(?:\.\d+)?)\s*fl\.?(?:uid)?\s*oz/i,'fl oz')
       ||m1(/(\d+(?:\.\d+)?)\s*oz\b/i,'oz')
       ||m1(/(\d+(?:\.\d+)?)\s*lbs?\b/i,'lb')
       ||m1(/(\d+(?:\.\d+)?)\s*kg\b/i,'kg')
@@ -480,9 +480,10 @@ function namesMatch(ingName,pantryName){
   const a=keyTokens(ingName), b=keyTokens(pantryName);
   if(!a.size||!b.size) return false;
   for(const w of b){ if(a.has(w)) return true; }
-  // loose contains for compound (e.g. "olive oil" vs "extra virgin olive oil")
-  const an=normName(ingName), bn=normName(pantryName);
-  return (bn.length>=4&&an.includes(bn))||(an.length>=4&&bn.includes(an));
+  // loose contains for compound (e.g. "olive oil" vs "extra virgin olive oil") —
+  // word-boundary only, so "milk" never matches inside "buttermilk"
+  const an=' '+normName(ingName)+' ', bn=' '+normName(pantryName)+' ';
+  return (bn.trim().length>=4&&an.includes(bn))||(an.trim().length>=4&&bn.includes(an));
 }
 function ingredientInPantry(ingName){
   return store.data.pantry.some(p=> (p.qty===undefined||p.qty>0) && namesMatch(ingName,p.name));
@@ -1016,7 +1017,7 @@ function fmtAmount(n){
 }
 const UNIT_NORM={tbsp:'tbsp',tbs:'tbsp','tbsp.':'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',tsp:'tsp','tsp.':'tsp',teaspoon:'tsp',teaspoons:'tsp',cup:'cup',cups:'cup',
   'fl oz':'fl oz','fl. oz':'fl oz','fl.oz':'fl oz','fluid oz':'fl oz','fluid ounce':'fl oz','fluid ounces':'fl oz',
-  oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',g:'g',gram:'g',grams:'g',kg:'kg',ml:'ml',l:'l',liter:'l',litre:'l',clove:'clove',cloves:'clove',can:'can',cans:'can',slice:'slice',slices:'slice',stick:'stick',sticks:'stick',head:'head',bunch:'bunch',pinch:'pinch',sprig:'sprig',sprigs:'sprig',
+  oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',g:'g',gram:'g',grams:'g',kg:'kg',ml:'ml',milliliter:'ml',milliliters:'ml',millilitre:'ml',millilitres:'ml',l:'l',liter:'l',litre:'l',liters:'l',litres:'l',clove:'clove',cloves:'clove',can:'can',cans:'can',slice:'slice',slices:'slice',stick:'stick',sticks:'stick',head:'head',bunch:'bunch',pinch:'pinch',sprig:'sprig',sprigs:'sprig',
   /* count synonyms → '' so "Eggs (each)" matches a recipe's "3 eggs" */ each:'',ea:'',count:'',ct:'',pc:'',pcs:'',piece:'',pieces:'',unit:'',units:'',whole:'',x:''};
 function normUnit(u){u=(u||'').toLowerCase().trim().replace(/\.$/,'');return (u in UNIT_NORM)?UNIT_NORM[u]:u;}
 /* Unit conversion tables. oz = dry ounce (weight). fl oz = fluid ounce (volume). Never conflate. */
@@ -1042,7 +1043,8 @@ function fmtGroceryQty(item){return [fmtAmount(item.amount),item.unit].filter(Bo
 function inPlan(recipeId){return store.data.mealPlan.some(e=>e.recipeId===recipeId);}
 function planEntryFor(recipeId){return store.data.mealPlan.find(e=>e.recipeId===recipeId);}
 function groceryAdd(key,name,amount,unit,recipeId){
-  let g=store.data.grocery.find(x=>x.key===key);
+  // match only un-checked items — merging into an already-"in the cart" item would hide the new need
+  let g=store.data.grocery.find(x=>x.key===key&&!x.done);
   if(g){ g.amount=(g.amount==null?0:g.amount)+(amount==null?0:amount);
     if(recipeId){g.recipeIds=g.recipeIds||[];if(!g.recipeIds.includes(recipeId))g.recipeIds.push(recipeId);} }
   else { store.data.grocery.push({id:uid(),key,name,amount:(amount==null?null:amount),unit:normUnit(unit),done:false,recipeIds:recipeId?[recipeId]:[],manual:!recipeId}); }
@@ -2009,7 +2011,7 @@ function importData(){
   const inp=document.createElement('input');inp.type='file';inp.accept='application/json';
   inp.onchange=()=>{const f=inp.files[0];if(!f)return;const fr=new FileReader();
     fr.onload=()=>{try{const d=JSON.parse(fr.result);if(!d.cookbooks)throw 0;
-      store.data=Object.assign({cookbooks:[],recipes:[],pantry:[],grocery:[],meta:{}},d);store.save();
+      store.data=Object.assign({cookbooks:[],recipes:[],pantry:[],grocery:[],mealPlan:[],meta:{}},d);store.save();
       setTab('cookbooks');toast('Backup restored','ok');}catch(e){toast('That file isn’t a valid backup','warn');}};
     fr.readAsText(f);};
   inp.click();
@@ -2124,7 +2126,7 @@ async function syncPull(){
     localStorage.setItem(DB_KEY,JSON.stringify(store.data));
   }catch(e){ console.warn('pull',e); }
 }
-function scheduleSync(){ if(!sb||!session)return; clearTimeout(syncTimer); syncTimer=setTimeout(syncPush,800); }
+function scheduleSync(){ if(!sb||!session)return; clearTimeout(syncTimer); syncTimer=setTimeout(()=>{syncTimer=null;syncPush();},800); }
 async function syncPush(){
   if(!sb||!session) return;
   try{
@@ -2139,6 +2141,27 @@ async function syncPush(){
   }catch(e){ console.warn('push',e); }
 }
 function hookSync(){ const _save=store.save.bind(store); store.save=function(){ _save(); scheduleSync(); }; }
+/* multi-device carry-over for an already-open tab: re-pull from the cloud whenever the
+   app regains focus (e.g. pantry scanned on the phone, then you switch back to the
+   desktop tab), and flush any pending push when the app goes to the background so a
+   quick edit-then-switch-away isn't lost. Pending local edits win over the pull. */
+let pullBusy=false;
+async function syncPullIfIdle(){
+  if(!sb||!session||syncTimer||pullBusy) return;
+  pullBusy=true;
+  try{
+    const before=JSON.stringify(store.data);
+    await syncPull();
+    if(JSON.stringify(store.data)!==before && !sheetOpen && !$('#gate').classList.contains('show')) render();
+  } finally { pullBusy=false; }
+}
+function hookVisibilitySync(){
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'){ if(syncTimer){clearTimeout(syncTimer);syncTimer=null;syncPush();} }
+    else syncPullIfIdle();
+  });
+  window.addEventListener('focus',()=>syncPullIfIdle());
+}
 
 /* ---- auth + code actions ---- */
 async function doSignOut(){
@@ -2199,7 +2222,7 @@ function authScreenHTML(){
 function wireAuth(g){
   g.querySelectorAll('.gate-toggle button').forEach(b=>b.onclick=()=>{authMode=b.dataset.m;renderGate('auth');});
   const err=$('#g-err',g), submit=$('#g-submit',g);
-  function showErr(m){ err.textContent=m; err.classList.add('show'); }
+  function showErr(m){ err.style.cssText=''; err.textContent=m; err.classList.add('show'); }
   submit.onclick=async()=>{
     const email=$('#g-email',g).value.trim(), pw=$('#g-pass',g).value;
     if(!email||!pw){ showErr('Enter your email and password.'); return; }
@@ -2268,6 +2291,7 @@ function wirePaywall(g){
 function boot(){
   store.load();
   hookSync();
+  hookVisibilitySync();
   if(initSupabase()){
     sb.auth.onAuthStateChange((event,s)=>{ session=s; if(event==='PASSWORD_RECOVERY')showPasswordReset(); });
     evaluateGate();
